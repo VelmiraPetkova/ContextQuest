@@ -1,40 +1,32 @@
+
 // Shared: DB client, game levels, scoring, names
 const { createClient } = require("@libsql/client");
 
 // ── Turso DB ──
 let _db;
+let _initialized = false;
+
 function getDb() {
   if (!_db) {
-    _db = createClient({
-      url: process.env.TURSO_URL || "file:local.db",
-      authToken: process.env.TURSO_AUTH_TOKEN || undefined,
-    });
+    const url = process.env.TURSO_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN;
+    if (!url || !authToken) {
+      throw new Error("TURSO_URL and TURSO_AUTH_TOKEN must be set");
+    }
+    _db = createClient({ url, authToken });
   }
   return _db;
 }
 
 async function initDb() {
+  if (_initialized) return;
   const db = getDb();
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS players (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS games (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      player_id TEXT NOT NULL,
-      score INTEGER NOT NULL,
-      perfect INTEGER NOT NULL DEFAULT 0,
-      rank_title TEXT NOT NULL DEFAULT '',
-      played_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
-  await db.execute(
-    "CREATE INDEX IF NOT EXISTS idx_games_score ON games(score DESC)"
-  );
+  await db.batch([
+    "CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))",
+    "CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id TEXT NOT NULL, score INTEGER NOT NULL, perfect INTEGER NOT NULL DEFAULT 0, rank_title TEXT NOT NULL DEFAULT '', played_at TEXT DEFAULT (datetime('now')))",
+    "CREATE INDEX IF NOT EXISTS idx_games_score ON games(score DESC)",
+  ], "write");
+  _initialized = true;
 }
 
 // ── Robot Name Generator ──

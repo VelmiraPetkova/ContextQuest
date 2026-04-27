@@ -4,6 +4,6 @@
   "private": true,
   "description": "Context engineering game — Netlify + Turso edition",
   "dependencies": {
-    "@libsql/client": "^0.6.0"
+    "@libsql/client": "0.5.6"
   }
 }
