@@ -4,7 +4,7 @@
 
 > *"The AI is only as good as the data you feed it."*
 
-Built as an [exercise in context engineering and understanding]
+Built as an [git initexercise in context engineering and understanding]
 
 ## How it works
 

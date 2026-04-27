@@ -7,15 +7,31 @@ let levels = [];
 let player = null; // {playerId, name}
 let state = { screen: "login", level: 0, bag: [], scores: [], phase: "pick", lastResult: null };
 
-// ── API helpers ──
+// ── API helpers (with error handling) ──
 
 const api = {
-  get: (url) => fetch(url).then((r) => r.json()),
+  get: (url) => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
   post: (url, body) => fetch(url, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  }).then((r) => r.json()),
+  }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
 };
+
+// ── Robot Name Generator (client-side, instant) ──
+const _pre = ["Unit","Bot","Mech","Byte","Chip","Gear","Bolt","Wire","Node","Core",
+  "Flux","Ping","Zap","Arc","Hex","Bit","Nano","Robo","Droid","Spark"];
+const _suf = ["7X","42","99","13","Z3","K9","V8","3D","X1","88",
+  "00","A7","R2","Q5","E9","M3","T6","J1","P4","W2"];
+const _ttl = ["Sparkplug","Codebreaker","Debugger","Firewall","Compiler",
+  "Overclocker","Patchwork","Uplinker","Downloader","Bytecruncher",
+  "Stacktrace","Firmware","Kernel","Dataminer","Circuitbend",
+  "Pixelpush","Logwalker","Threadripper","Cachebuster","Defragmenter"];
+function _pk(a){return a[Math.floor(Math.random()*a.length)]}
+function genRobotNames(n){
+  const s=new Set(),r=[];
+  while(r.length<n){const nm=_pk(_pre)+"-"+_pk(_suf)+" "+_pk(_ttl);if(!s.has(nm)){s.add(nm);r.push(nm);}}
+  return r;
+}
 
 // ── INIT ──
 render();
@@ -39,26 +55,25 @@ function renderPips() {
   }).join("");
 }
 
-// ── LOGIN: Elvish Name Picker ──
+// ── LOGIN: Robot Name Picker ──
 
 async function renderLogin() {
-  // Check localStorage for returning player
   const saved = localStorage.getItem("cq_player");
   if (saved) {
     player = JSON.parse(saved);
     state.screen = "intro";
-    levels = await api.get("/api/levels");
+    try { levels = await api.get("/api/levels"); } catch(e) { levels = OFFLINE_LEVELS; }
+    if (!levels || !levels.length) levels = OFFLINE_LEVELS;
     render();
     return;
   }
 
   game.innerHTML = `
     <div class="screen show">
-      <div style="font-size:64px;margin-bottom:8px">🧝</div>
-      <div class="hdr"><h1>Choose Your Name</h1></div>
-      <p>Every adventurer needs an elvish name. Pick one — this is how you'll appear on the leaderboard.</p>
+      <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot walk"></div></div>
+      <div class="hdr"><h1>Choose Your Designation</h1></div>
+      <p>Every robot needs a designation. Pick one — this is how you'll appear on the leaderboard.</p>
       <div id="name-options" style="display:flex;flex-direction:column;gap:8px;max-width:320px;margin:0 auto 16px">
-        <div class="bp-empty">Loading names...</div>
       </div>
       <button class="btn btn-clear" onclick="refreshNames()" style="max-width:200px;margin:0 auto 12px;display:block">🎲 Roll new names</button>
       <div style="text-align:center;margin-top:8px">
@@ -68,22 +83,24 @@ async function renderLogin() {
   loadNames();
 }
 
-async function loadNames() {
-  const names = await api.get("/api/names");
+function loadNames() {
+  const names = genRobotNames(4);
   const el = $("#name-options");
   if (!el) return;
-  el.innerHTML = names.map((n) => `
-    <button class="btn btn-go" onclick="pickName('${n.replace(/'/g, "\\'")}')" style="margin:0">${n}</button>
+  el.innerHTML = names.map(n => `
+    <button class="btn btn-go" onclick="pickName('${n.replace(/'/g,"\\'")}')" style="margin:0">${n}</button>
   `).join("");
 }
 
-async function refreshNames() { loadNames(); }
+function refreshNames() { loadNames(); }
 
 async function pickName(name) {
-  const res = await api.post("/api/login", { name });
-  player = { playerId: res.playerId, name: res.name };
+  let id = "local-" + Math.random().toString(36).slice(2);
+  try { const res = await api.post("/api/login", { name }); id = res.playerId; } catch(e) {}
+  player = { playerId: id, name };
   localStorage.setItem("cq_player", JSON.stringify(player));
-  levels = await api.get("/api/levels");
+  try { levels = await api.get("/api/levels"); } catch(e) { levels = OFFLINE_LEVELS; }
+  if (!levels || !levels.length) levels = OFFLINE_LEVELS;
   state.screen = "intro";
   render();
 }
@@ -211,7 +228,13 @@ async function doSubmit() {
   $("#result").innerHTML = `<div class="r-card"><div class="r-head"><span class="r-avatar">🤖</span><span class="r-who">AI COMPANION</span></div><div style="display:flex;gap:5px;padding:8px 0"><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite"></span><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite .2s"></span><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite .4s"></span></div></div>`;
   $("#result").classList.add("show");
 
-  const result = await api.post("/api/submit", { level: state.level, bag: state.bag });
+  let result;
+  try {
+    result = await api.post("/api/submit", { level: state.level, bag: state.bag });
+  } catch(e) {
+    // Offline fallback: score client-side
+    result = localEvaluate(state.level, state.bag);
+  }
   state.lastResult = result;
   state.scores.push(result.score);
   state.phase = "done";
@@ -375,4 +398,124 @@ function spawnParticles() {
       { transform: `translate(${x}px,${y}px) scale(0.3)`, opacity: 0 }
     ], { duration: 600 + Math.random() * 400, easing: "ease-out", fill: "forwards" });
   }
+}
+
+
+// OFFLINE DATA — full levels + client-side scoring
+// Works without any backend (open index.html directly)
+
+
+const OFFLINE_LEVELS = [
+  {tag:"LEVEL 1 — THE CAVE",title:"The Locked Door",desc:"A door blocks your path. Symbols are carved into it.",goal:"Open the ancient door",heroEmoji:"🧙",capacity:150,
+    items:[
+      {id:"a",emoji:"🗺️",name:"Symbol Map",wt:40,type:"signal",tip:"Maps each symbol to a meaning"},
+      {id:"b",emoji:"🔮",name:"Crystal Ball",wt:50,type:"noise",tip:"Shows your horoscope"},
+      {id:"c",emoji:"📜",name:"Door Inscription",wt:35,type:"signal",tip:"The actual symbols on the door"},
+      {id:"d",emoji:"⚔️",name:"Rusty Sword",wt:60,type:"noise",tip:"Good for fighting, useless for reading"},
+      {id:"e",emoji:"📖",name:"Wizard's Notes",wt:40,type:"signal",tip:"Sequence matters — read left to right"},
+      {id:"f",emoji:"🧪",name:"Potion Recipes",wt:55,type:"noise",tip:"46 potion recipes, none about doors"},
+    ],_r:{
+      perfect:{keys:["a","c","e"],text:'<span class="ok">Deciphered!</span> Reading left-to-right:\n\n"Speak the name of the mountain at dawn."\n\n<span class="ok">The door rumbles open.</span>',score:100},
+      good:{keys:["a","c"],text:'<span class="ok">I can read the symbols.</span>\n\n<span class="maybe">Not sure of the reading order.</span>',score:65},
+      partial:{keys:["c"],text:'I see symbols but <span class="maybe">can\'t decode without a key.</span>',score:30},
+      hall:{text:'<span class="hall">The crystal ball says doors open on Tuesdays!</span>',score:5},
+      empty:{text:'<span class="hall">Try "Open Sesame"?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> A sword and crystal ball are powerful — but useless for reading. Context engineering = right data for the right problem.'},
+
+  {tag:"LEVEL 2 — THE FOREST",title:"The Poisoned River",desc:"The river glows green. Gather clues.",goal:"Find the poison source",heroEmoji:"🧝",capacity:180,
+    items:[
+      {id:"a",emoji:"💧",name:"Water Sample",wt:30,type:"signal",tip:"Sulfur + herbs"},
+      {id:"b",emoji:"🌿",name:"Herb Guide",wt:45,type:"signal",tip:"Nightshade matches"},
+      {id:"c",emoji:"🗺️",name:"River Map",wt:50,type:"signal",tip:"Witch's hut upstream"},
+      {id:"d",emoji:"🦴",name:"Animal Bones",wt:40,type:"partial",tip:"Dead fish nearby"},
+      {id:"e",emoji:"📚",name:"History of the Forest",wt:80,type:"noise",tip:"300 pages. Very heavy."},
+      {id:"f",emoji:"🧲",name:"Magic Compass",wt:35,type:"noise",tip:"Points north. Irrelevant."},
+    ],_r:{
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Found it.</span> Nightshade waste from <span class="ok">witch\'s hut upstream</span>.\n\n<span class="ok">Cure: charcoal filtration.</span>',score:100},
+      good:{keys:["a","b"],text:'<span class="ok">Nightshade + sulfur</span> — potion waste.\n\n<span class="maybe">Where from? Need a map.</span>',score:65},
+      partial:{keys:["a","d"],text:'Contaminated. Dead fish confirm upstream.\n\n<span class="maybe">Can\'t identify compound.</span>',score:35},
+      hall:{text:'<span class="hall">History says cursed by a dragon. Try fire spell?</span>',score:5},
+      empty:{text:'<span class="hall">Try boiling the water?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> History book (80 wt!) = zero value. Water (30) + herbs (45) + map (50) = 125 wt, complete answer. Heavy ≠ valuable.'},
+
+  {tag:"LEVEL 3 — THE CASTLE",title:"The Stolen Crown",desc:"Crown vanished at the feast.",goal:"Identify the thief",heroEmoji:"🕵️",capacity:200,
+    items:[
+      {id:"a",emoji:"👁️",name:"Guard's Testimony",wt:35,type:"signal",tip:"Only the Duke left"},
+      {id:"b",emoji:"🧤",name:"Glove (found)",wt:30,type:"signal",tip:"Duke's crest at vault"},
+      {id:"c",emoji:"🔑",name:"Vault Lock Report",wt:40,type:"signal",tip:"Lock picked"},
+      {id:"d",emoji:"📋",name:"Guest List",wt:50,type:"partial",tip:"48 guests, 4 near vault"},
+      {id:"e",emoji:"🍷",name:"Wine Menu",wt:45,type:"noise",tip:"Burgundy was excellent."},
+      {id:"f",emoji:"🎵",name:"Music Playlist",wt:40,type:"noise",tip:"Bard played 8 songs."},
+      {id:"g",emoji:"💎",name:"Duke's Debt Record",wt:40,type:"signal",tip:"10,000 gold due next week"},
+    ],_r:{
+      perfect:{keys:["a","b","c","g"],text:'<span class="ok">The Duke stole the crown.</span>\n\n• <span class="ok">Only one who left</span>\n• <span class="ok">Glove at vault</span>\n• <span class="ok">Lock picked</span>\n• <span class="ok">10,000 gold motive</span>',score:100},
+      good:{keys:["a","b","c"],text:'Strong case: <span class="ok">the Duke</span>.\n\n<span class="maybe">What\'s his motive?</span>',score:70},
+      partial:{keys:["a","d"],text:'Duke left. <span class="maybe">Need physical evidence.</span>',score:35},
+      hall:{text:'<span class="hall">Wine was drugged! Song #5 was the signal!</span>',score:5},
+      empty:{text:'<span class="hall">Usually the jester.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Wine + music = 85 wt, zero evidence. Debt record (40 wt) completed the chain.'},
+
+  {tag:"LEVEL 4 — THE SKY",title:"The Falling Airship",desc:"Engine sputters. Fix it mid-flight.",goal:"Diagnose engine failure",heroEmoji:"👩‍🔧",capacity:200,
+    items:[
+      {id:"a",emoji:"📊",name:"Engine Gauges",wt:35,type:"signal",tip:"Pressure LOW, steam intermittent"},
+      {id:"b",emoji:"🔧",name:"Maintenance Log",wt:45,type:"signal",tip:"Model B valve instead of A"},
+      {id:"c",emoji:"📐",name:"Engine Blueprint",wt:50,type:"signal",tip:"A=200PSI, B=120PSI"},
+      {id:"d",emoji:"🌤️",name:"Weather Report",wt:60,type:"noise",tip:"Partly cloudy, 15 knots"},
+      {id:"e",emoji:"📦",name:"Cargo Manifest",wt:55,type:"noise",tip:"3,200 lbs cargo"},
+      {id:"f",emoji:"🧰",name:"Spare Parts List",wt:40,type:"partial",tip:"2x Model A valves on board"},
+    ],_r:{
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Found it.</span> <span class="ok">Model B valve (120 PSI) can\'t handle 200 PSI.</span>\n\n<span class="ok">Swap Model A valve. 15 min fix.</span>',score:100},
+      good:{keys:["a","b"],text:'<span class="ok">Low pressure + wrong valve.</span>\n\n<span class="maybe">Need specs to confirm.</span>',score:65},
+      partial:{keys:["a","f"],text:'Pressure low. Parts available.\n\n<span class="maybe">WHY? Need maintenance log.</span>',score:35},
+      hall:{text:'<span class="hall">Headwind + cargo = too much drag. Dump the books!</span>',score:5},
+      empty:{text:'<span class="hall">Increase throttle.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Weather (60) + cargo (55) = red herrings. Maintenance log (45 wt) was the smoking gun.'},
+
+  {tag:"LEVEL 5 — THE FINAL DUNGEON",title:"The Dragon's Riddle",desc:"Answer correctly or become toast.",goal:'Answer: "What is my true name?"',heroEmoji:"⚔️",capacity:180,
+    items:[
+      {id:"a",emoji:"🐉",name:"Dragon's Scale",wt:25,type:"signal",tip:'"I am called by what I protect"'},
+      {id:"b",emoji:"💎",name:"Treasure Inventory",wt:30,type:"signal",tip:"Guards: The Starfire Gem"},
+      {id:"c",emoji:"📖",name:"Naming Lore",wt:40,type:"signal",tip:"Dragons take treasure's name"},
+      {id:"d",emoji:"🗡️",name:"Legendary Sword",wt:65,type:"noise",tip:"Dragon said NO FIGHTING."},
+      {id:"e",emoji:"🛡️",name:"Fire Shield",wt:55,type:"noise",tip:"Won't help if wrong."},
+      {id:"f",emoji:"📚",name:"Dragon Encyclopedia",wt:90,type:"noise",tip:"500 pages. Way too heavy."},
+      {id:"g",emoji:"👤",name:"Hermit's Whisper",wt:20,type:"partial",tip:"Stars and fire..."},
+    ],_r:{
+      perfect:{keys:["a","b","c"],text:'<span class="ok">The dragon\'s name is Starfire.</span>\n\n• <span class="ok">"Called by what I protect"</span>\n• <span class="ok">The Starfire Gem</span>\n• <span class="ok">Dragons take treasure\'s name</span>\n\n<span class="ok">The dragon bows. You pass.</span>',score:100},
+      good:{keys:["a","b"],text:'Protects <span class="ok">Starfire Gem</span> → <span class="ok">"Starfire"</span>.\n\n<span class="maybe">Without lore, not 100% sure.</span>',score:70},
+      partial:{keys:["a","g"],text:'Stars and fire... <span class="maybe">"Starfire"? Guessing.</span>',score:40},
+      hall:{text:'<span class="hall">Encyclopedia says "Ignis." Fight if wrong.</span>',score:5},
+      empty:{text:'<span class="hall">Try "Smaug"?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Sword + Shield + Encyclopedia = 210 wt, over budget AND useless. Scale + Treasure + Lore = 95 wt, perfect answer. That\'s context engineering.'},
+];
+
+// ── Client-side scoring (mirrors server logic) ──
+function localEvaluate(levelIdx, bag) {
+  const level = OFFLINE_LEVELS[levelIdx];
+  if (!level) return { responseText: "Invalid level.", score: 0, quality: "empty", items: [], lesson: "" };
+
+  const totalWt = bag.reduce((s, id) => { const it = level.items.find(i => i.id === id); return s + (it ? it.wt : 0); }, 0);
+  if (totalWt > level.capacity)
+    return { responseText: "Backpack too heavy! Robot explodes. 💥", score: 0, quality: "overweight", items: level.items.map(i => ({id:i.id,type:i.type})), lesson: "" };
+
+  const r = level._r;
+  const bagSet = new Set(bag);
+  let resp;
+
+  if (bag.length === 0) { resp = r.empty; resp.quality = "empty"; }
+  else if (r.perfect.keys.length === bag.length && r.perfect.keys.every(k => bagSet.has(k))) { resp = r.perfect; resp.quality = "perfect"; }
+  else if (r.good.keys.every(k => bagSet.has(k)) && r.good.keys.length > 0) { resp = r.good; resp.quality = "good"; }
+  else {
+    let sig = 0, noi = 0;
+    for (const id of bag) { const it = level.items.find(i => i.id === id); if (it?.type === "signal") sig++; if (it?.type === "noise") noi++; }
+    if (noi >= sig) { resp = r.hall; resp.quality = "hallucination"; }
+    else if (r.partial.keys && r.partial.keys.some(k => bagSet.has(k))) { resp = r.partial; resp.quality = "partial"; }
+    else { resp = r.hall; resp.quality = "hallucination"; }
+  }
+
+  return {
+    responseText: resp.text, score: resp.score, quality: resp.quality,
+    items: level.items.map(i => ({ id: i.id, type: i.type })),
+    lesson: level.lesson,
+  };
 }

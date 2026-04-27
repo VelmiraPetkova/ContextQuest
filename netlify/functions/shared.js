@@ -1,6 +1,6 @@
-// ═══════════════════════════════════════════════════
+
 // Shared: DB client, game levels, scoring, names
-// ═══════════════════════════════════════════════════
+
 const { createClient } = require("@libsql/client");
 
 // ── Turso DB ──
@@ -39,25 +39,20 @@ async function initDb() {
   );
 }
 
-// ── Elvish Name Generator ──
+// ── Robot Name Generator ──
 const prefixes = [
-  "Ael","Aer","Ara","Cal","Cel","Cir","Eil","Ela","Fae","Fen",
-  "Gal","Gil","Hal","Ith","Kel","Lae","Leg","Lir","Lor","Lun",
-  "Mae","Mir","Nal","Nim","Nor","Orn","Quel","Rin","Sil","Sol",
-  "Sor","Tar","Tel","Thal","Thel","Tir","Val","Ven","Vir","Zar",
+  "Unit","Bot","Mech","Byte","Chip","Gear","Bolt","Wire","Node","Core",
+  "Flux","Ping","Zap","Arc","Hex","Bit","Nano","Robo","Droid","Spark",
 ];
 const suffixes = [
-  "andir","aris","born","dil","dor","eath","edor","elen","emar",
-  "enas","eon","eth","ewen","fael","gorn","iel","ien","ion","ith",
-  "las","lian","lith","mar","mith","nar","ndil","nir","nor","olas",
-  "orin","oth","ras","riel","rion","ris","rond","sar","thas","thil",
-  "wen","yar","ziel",
+  "7X","42","99","13","Z3","K9","V8","3D","X1","88",
+  "00","A7","R2","Q5","E9","M3","T6","J1","P4","W2",
 ];
 const titles = [
-  "the Brave","the Wise","Starwalker","Moonblade","Flameheart",
-  "Shadowleaf","Stormborn","Dawnseeker","Frostweaver","Nightwhisper",
-  "Sunforger","Windrunner","Ironbark","Silverthorn","Goldenleaf",
-  "Crystaleye","Embermist","Ravensong","Thunderoak","Dreamwalker",
+  "Sparkplug","Codebreaker","Debugger","Firewall","Compiler",
+  "Overclocker","Patchwork","Defragmenter","Uplinker","Downloader",
+  "Bytecruncher","Stacktrace","Firmware","Kernel","Dataminer",
+  "Circuitbend","Pixelpush","Logwalker","Threadripper","Cachebuster",
 ];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -66,7 +61,7 @@ function generateNames(n) {
   const seen = new Set();
   const names = [];
   while (names.length < n) {
-    const name = pick(prefixes) + pick(suffixes).toLowerCase() + " " + pick(titles);
+    const name = pick(prefixes) + "-" + pick(suffixes) + " " + pick(titles);
     if (!seen.has(name)) { seen.add(name); names.push(name); }
   }
   return names;
