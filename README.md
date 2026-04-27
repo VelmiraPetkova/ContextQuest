@@ -4,7 +4,7 @@
 
 > *"The AI is only as good as the data you feed it."*
 
-Built for [CloudNativeDays Romania 2026](https://cloudnativedays.ro).
+Built as an [exercise in context engineering and understanding]
 
 ## How it works
 
