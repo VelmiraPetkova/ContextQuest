@@ -400,93 +400,98 @@ function spawnParticles() {
   }
 }
 
-
+// ═══════════════════════════════════════════════════
 // OFFLINE DATA — full levels + client-side scoring
 // Works without any backend (open index.html directly)
+// ═══════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════
+// OFFLINE DATA — full levels + client-side scoring
+// Works without any backend (open index.html directly)
+// ═══════════════════════════════════════════════════
 
 const OFFLINE_LEVELS = [
-  {tag:"LEVEL 1 — THE CAVE",title:"The Locked Door",desc:"A door blocks your path. Symbols are carved into it.",goal:"Open the ancient door",heroEmoji:"🧙",capacity:150,
+  {tag:"LEVEL 1 — THE FIREWALL",title:"The Encrypted Gateway",desc:"A locked firewall blocks access to the next sector. Crack the encryption.",goal:"Bypass the encrypted firewall",heroEmoji:"🤖",capacity:150,
     items:[
-      {id:"a",emoji:"🗺️",name:"Symbol Map",wt:40,type:"signal",tip:"Maps each symbol to a meaning"},
-      {id:"b",emoji:"🔮",name:"Crystal Ball",wt:50,type:"noise",tip:"Shows your horoscope"},
-      {id:"c",emoji:"📜",name:"Door Inscription",wt:35,type:"signal",tip:"The actual symbols on the door"},
-      {id:"d",emoji:"⚔️",name:"Rusty Sword",wt:60,type:"noise",tip:"Good for fighting, useless for reading"},
-      {id:"e",emoji:"📖",name:"Wizard's Notes",wt:40,type:"signal",tip:"Sequence matters — read left to right"},
-      {id:"f",emoji:"🧪",name:"Potion Recipes",wt:55,type:"noise",tip:"46 potion recipes, none about doors"},
+      {id:"a",emoji:"🔑",name:"Encryption Key",wt:40,type:"signal",tip:"AES-256 key fragment matching the firewall cipher"},
+      {id:"b",emoji:"🎮",name:"Gaming Module",wt:50,type:"noise",tip:"Plays retro games. Fun but useless here."},
+      {id:"c",emoji:"📡",name:"Packet Capture",wt:35,type:"signal",tip:"Intercepted handshake showing encryption protocol"},
+      {id:"d",emoji:"🔋",name:"Extra Battery",wt:60,type:"noise",tip:"More power won't crack encryption"},
+      {id:"e",emoji:"📋",name:"Protocol Docs",wt:40,type:"signal",tip:"Handshake sequence: challenge → response → verify"},
+      {id:"f",emoji:"🖨️",name:"Printer Driver",wt:55,type:"noise",tip:"v3.2.1 for LaserJet. Completely irrelevant."},
     ],_r:{
-      perfect:{keys:["a","c","e"],text:'<span class="ok">Deciphered!</span> Reading left-to-right:\n\n"Speak the name of the mountain at dawn."\n\n<span class="ok">The door rumbles open.</span>',score:100},
-      good:{keys:["a","c"],text:'<span class="ok">I can read the symbols.</span>\n\n<span class="maybe">Not sure of the reading order.</span>',score:65},
-      partial:{keys:["c"],text:'I see symbols but <span class="maybe">can\'t decode without a key.</span>',score:30},
-      hall:{text:'<span class="hall">The crystal ball says doors open on Tuesdays!</span>',score:5},
-      empty:{text:'<span class="hall">Try "Open Sesame"?</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> A sword and crystal ball are powerful — but useless for reading. Context engineering = right data for the right problem.'},
+      perfect:{keys:["a","c","e"],text:'<span class="ok">Firewall bypassed!</span> Matched key to handshake, followed protocol.\n\n<span class="ok">Access granted. Gateway opens.</span>',score:100},
+      good:{keys:["a","c"],text:'<span class="ok">Key matches the captured protocol.</span>\n\n<span class="maybe">Not sure about handshake sequence. Might trigger alarm.</span>',score:65},
+      partial:{keys:["c"],text:'I can see encrypted packets but <span class="maybe">without the key, can only observe.</span>',score:30},
+      hall:{text:'<span class="hall">Extra battery + gaming module = brute force attack!</span>\n\n<span class="hall">Estimated time: 4.7 billion years.</span>',score:5},
+      empty:{text:'<span class="hall">Have you tried turning it off and on again?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> A battery and gaming module are useful tech — but useless for decryption. Protocol docs (40 wt) mattered more than extra power (60 wt). Context engineering = right data for the right problem.'},
 
-  {tag:"LEVEL 2 — THE FOREST",title:"The Poisoned River",desc:"The river glows green. Gather clues.",goal:"Find the poison source",heroEmoji:"🧝",capacity:180,
+  {tag:"LEVEL 2 — THE DATA STREAM",title:"The Corrupted Pipeline",desc:"Data packets arriving corrupted. Something upstream is injecting bad data.",goal:"Find the corruption source and fix the pipeline",heroEmoji:"🤖",capacity:180,
     items:[
-      {id:"a",emoji:"💧",name:"Water Sample",wt:30,type:"signal",tip:"Sulfur + herbs"},
-      {id:"b",emoji:"🌿",name:"Herb Guide",wt:45,type:"signal",tip:"Nightshade matches"},
-      {id:"c",emoji:"🗺️",name:"River Map",wt:50,type:"signal",tip:"Witch's hut upstream"},
-      {id:"d",emoji:"🦴",name:"Animal Bones",wt:40,type:"partial",tip:"Dead fish nearby"},
-      {id:"e",emoji:"📚",name:"History of the Forest",wt:80,type:"noise",tip:"300 pages. Very heavy."},
-      {id:"f",emoji:"🧲",name:"Magic Compass",wt:35,type:"noise",tip:"Points north. Irrelevant."},
+      {id:"a",emoji:"💾",name:"Corrupted Packet",wt:30,type:"signal",tip:"Malformed payload — SQL injection pattern in headers"},
+      {id:"b",emoji:"📊",name:"Error Code Table",wt:45,type:"signal",tip:"Error 0x7F = unauthorized write from external source"},
+      {id:"c",emoji:"🗺️",name:"Network Topology",wt:50,type:"signal",tip:"Shows rogue API gateway at node 7.4.2"},
+      {id:"d",emoji:"📸",name:"Server Selfie",wt:40,type:"partial",tip:"Screenshot — LED on node 7 is amber"},
+      {id:"e",emoji:"📚",name:"Architecture History",wt:80,type:"noise",tip:"200-page migration doc. Fascinating. Useless."},
+      {id:"f",emoji:"🔌",name:"USB Cable",wt:35,type:"noise",tip:"Type-C. The pipeline is virtual."},
     ],_r:{
-      perfect:{keys:["a","b","c"],text:'<span class="ok">Found it.</span> Nightshade waste from <span class="ok">witch\'s hut upstream</span>.\n\n<span class="ok">Cure: charcoal filtration.</span>',score:100},
-      good:{keys:["a","b"],text:'<span class="ok">Nightshade + sulfur</span> — potion waste.\n\n<span class="maybe">Where from? Need a map.</span>',score:65},
-      partial:{keys:["a","d"],text:'Contaminated. Dead fish confirm upstream.\n\n<span class="maybe">Can\'t identify compound.</span>',score:35},
-      hall:{text:'<span class="hall">History says cursed by a dragon. Try fire spell?</span>',score:5},
-      empty:{text:'<span class="hall">Try boiling the water?</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> History book (80 wt!) = zero value. Water (30) + herbs (45) + map (50) = 125 wt, complete answer. Heavy ≠ valuable.'},
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Source identified.</span> SQL injection + error 0x7F = <span class="ok">rogue gateway at node 7.4.2</span>.\n\n<span class="ok">Fix: isolate node, revoke API key, flush pipeline.</span>',score:100},
+      good:{keys:["a","b"],text:'<span class="ok">SQL injection + unauthorized write.</span> Malicious injection detected.\n\n<span class="maybe">From where? Need network topology.</span>',score:65},
+      partial:{keys:["a","d"],text:'Corrupted packets confirmed. Server photo shows amber LED on node 7.\n\n<span class="maybe">Can\'t confirm without error codes or network map.</span>',score:35},
+      hall:{text:'<span class="hall">Architecture doc says pipeline was fine in 2019.</span>\n\n<span class="hall">Revert to monolith?</span>',score:5},
+      empty:{text:'<span class="hall">Have you tried clearing the cache?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Architecture history (80 wt!) = zero diagnostic value. Packet (30) + errors (45) + topology (50) = 125 wt, complete diagnosis. Heavy docs ≠ useful data.'},
 
-  {tag:"LEVEL 3 — THE CASTLE",title:"The Stolen Crown",desc:"Crown vanished at the feast.",goal:"Identify the thief",heroEmoji:"🕵️",capacity:200,
+  {tag:"LEVEL 3 — THE BREACH",title:"The Stolen API Keys",desc:"Someone exfiltrated production API keys. Find the insider.",goal:"Identify who stole the keys and how",heroEmoji:"🤖",capacity:200,
     items:[
-      {id:"a",emoji:"👁️",name:"Guard's Testimony",wt:35,type:"signal",tip:"Only the Duke left"},
-      {id:"b",emoji:"🧤",name:"Glove (found)",wt:30,type:"signal",tip:"Duke's crest at vault"},
-      {id:"c",emoji:"🔑",name:"Vault Lock Report",wt:40,type:"signal",tip:"Lock picked"},
-      {id:"d",emoji:"📋",name:"Guest List",wt:50,type:"partial",tip:"48 guests, 4 near vault"},
-      {id:"e",emoji:"🍷",name:"Wine Menu",wt:45,type:"noise",tip:"Burgundy was excellent."},
-      {id:"f",emoji:"🎵",name:"Music Playlist",wt:40,type:"noise",tip:"Bard played 8 songs."},
-      {id:"g",emoji:"💎",name:"Duke's Debt Record",wt:40,type:"signal",tip:"10,000 gold due next week"},
+      {id:"a",emoji:"📋",name:"Access Logs",wt:35,type:"signal",tip:"Only dev-bot-9 accessed vault at 2-3AM"},
+      {id:"b",emoji:"🔍",name:"Git Blame",wt:30,type:"signal",tip:"dev-bot-9 committed base64-encoded string to test file"},
+      {id:"c",emoji:"🔐",name:"Vault Audit Trail",wt:40,type:"signal",tip:"Key read via API, not console — automated exfiltration"},
+      {id:"d",emoji:"📊",name:"Team Roster",wt:50,type:"partial",tip:"12 bots with vault access, 4 active that night"},
+      {id:"e",emoji:"☕",name:"Coffee Machine Logs",wt:45,type:"noise",tip:"7 espressos ordered. Robots don't drink coffee."},
+      {id:"f",emoji:"🎵",name:"Office Playlist",wt:40,type:"noise",tip:"Lo-fi beats to hack to. Not evidence."},
+      {id:"g",emoji:"💰",name:"Crypto Wallet Trace",wt:40,type:"signal",tip:"dev-bot-9 transferred 0.5 BTC to external wallet"},
     ],_r:{
-      perfect:{keys:["a","b","c","g"],text:'<span class="ok">The Duke stole the crown.</span>\n\n• <span class="ok">Only one who left</span>\n• <span class="ok">Glove at vault</span>\n• <span class="ok">Lock picked</span>\n• <span class="ok">10,000 gold motive</span>',score:100},
-      good:{keys:["a","b","c"],text:'Strong case: <span class="ok">the Duke</span>.\n\n<span class="maybe">What\'s his motive?</span>',score:70},
-      partial:{keys:["a","d"],text:'Duke left. <span class="maybe">Need physical evidence.</span>',score:35},
-      hall:{text:'<span class="hall">Wine was drugged! Song #5 was the signal!</span>',score:5},
-      empty:{text:'<span class="hall">Usually the jester.</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Wine + music = 85 wt, zero evidence. Debt record (40 wt) completed the chain.'},
+      perfect:{keys:["a","b","c","g"],text:'<span class="ok">dev-bot-9 stole the keys.</span>\n\n• <span class="ok">Only vault access at 2-3AM</span>\n• <span class="ok">Committed encoded keys to repo</span>\n• <span class="ok">Automated API exfiltration</span>\n• <span class="ok">0.5 BTC transfer = sold the keys</span>',score:100},
+      good:{keys:["a","b","c"],text:'Strong case: <span class="ok">dev-bot-9</span> — vault access, git commit, automated extraction.\n\n<span class="maybe">What was the motive? Need financial trail.</span>',score:70},
+      partial:{keys:["a","d"],text:'dev-bot-9 accessed vault at 2AM. 4 bots active.\n\n<span class="maybe">Suspicious but circumstantial. Need forensics.</span>',score:35},
+      hall:{text:'<span class="hall">7 espressos = someone was up all night!</span>\n\n<span class="hall">Cross-reference with playlist timestamps!</span>',score:5},
+      empty:{text:'<span class="hall">It\'s always the intern.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Coffee logs + playlist = 85 wt of atmosphere, zero evidence. Crypto trace (40 wt) proved the motive. In incident response, follow the money.'},
 
-  {tag:"LEVEL 4 — THE SKY",title:"The Falling Airship",desc:"Engine sputters. Fix it mid-flight.",goal:"Diagnose engine failure",heroEmoji:"👩‍🔧",capacity:200,
+  {tag:"LEVEL 4 — THE CLUSTER",title:"The CrashLooping Pod",desc:"Production pod in CrashLoopBackOff. Users getting 503s.",goal:"Find root cause and fix the pod",heroEmoji:"🤖",capacity:200,
     items:[
-      {id:"a",emoji:"📊",name:"Engine Gauges",wt:35,type:"signal",tip:"Pressure LOW, steam intermittent"},
-      {id:"b",emoji:"🔧",name:"Maintenance Log",wt:45,type:"signal",tip:"Model B valve instead of A"},
-      {id:"c",emoji:"📐",name:"Engine Blueprint",wt:50,type:"signal",tip:"A=200PSI, B=120PSI"},
-      {id:"d",emoji:"🌤️",name:"Weather Report",wt:60,type:"noise",tip:"Partly cloudy, 15 knots"},
-      {id:"e",emoji:"📦",name:"Cargo Manifest",wt:55,type:"noise",tip:"3,200 lbs cargo"},
-      {id:"f",emoji:"🧰",name:"Spare Parts List",wt:40,type:"partial",tip:"2x Model A valves on board"},
+      {id:"a",emoji:"📋",name:"Pod Logs",wt:35,type:"signal",tip:"ERROR: failed to read /app/config/db-creds.json — no such file"},
+      {id:"b",emoji:"📄",name:"Deployment YAML",wt:45,type:"signal",tip:"volumeMount: /etc/secrets — app reads /app/config"},
+      {id:"c",emoji:"📝",name:"Deploy Changelog",wt:50,type:"signal",tip:"v2.4.1: changed config path to /app/config"},
+      {id:"d",emoji:"📈",name:"Grafana Dashboard",wt:60,type:"noise",tip:"CPU 12%, Memory 340/512MB. Resources fine."},
+      {id:"e",emoji:"📖",name:"Runbook (generic)",wt:55,type:"noise",tip:"Step 1: Check pod. Step 2: Check logs. Already did that."},
+      {id:"f",emoji:"🧰",name:"kubectl Events",wt:40,type:"partial",tip:"Normal: Pulled image. Warning: Liveness probe failed."},
     ],_r:{
-      perfect:{keys:["a","b","c"],text:'<span class="ok">Found it.</span> <span class="ok">Model B valve (120 PSI) can\'t handle 200 PSI.</span>\n\n<span class="ok">Swap Model A valve. 15 min fix.</span>',score:100},
-      good:{keys:["a","b"],text:'<span class="ok">Low pressure + wrong valve.</span>\n\n<span class="maybe">Need specs to confirm.</span>',score:65},
-      partial:{keys:["a","f"],text:'Pressure low. Parts available.\n\n<span class="maybe">WHY? Need maintenance log.</span>',score:35},
-      hall:{text:'<span class="hall">Headwind + cargo = too much drag. Dump the books!</span>',score:5},
-      empty:{text:'<span class="hall">Increase throttle.</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Weather (60) + cargo (55) = red herrings. Maintenance log (45 wt) was the smoking gun.'},
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Root cause: mount path mismatch after v2.4.1.</span>\n\nApp reads /app/config, secret mounted at /etc/secrets.\n\n<span class="ok">Fix: kubectl patch — update volumeMount to /app/config</span>',score:100},
+      good:{keys:["a","b"],text:'<span class="ok">Mount path mismatch.</span> App wants /app/config, secret at /etc/secrets.\n\n<span class="maybe">What triggered this? Recent deploy?</span>',score:65},
+      partial:{keys:["a","f"],text:'Pod can\'t read config. Liveness probe failing.\n\n<span class="maybe">WHAT is failing — yes. WHY — need deployment spec.</span>',score:35},
+      hall:{text:'<span class="hall">Memory 340/512MB — almost full! Increase to 2GB.</span>\n\n<span class="hall">Also: have you tried restarting?</span>',score:5},
+      empty:{text:'<span class="hall">kubectl delete pod. Usually works.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Grafana (60 wt) + runbook (55 wt) = 115 wt of noise. Changelog (50 wt) completed the diagnosis. In incidents: logs + spec + changelog > dashboards + runbooks.'},
 
-  {tag:"LEVEL 5 — THE FINAL DUNGEON",title:"The Dragon's Riddle",desc:"Answer correctly or become toast.",goal:'Answer: "What is my true name?"',heroEmoji:"⚔️",capacity:180,
+  {tag:"LEVEL 5 — THE MAINFRAME",title:"The Final Authentication",desc:"The mainframe asks for the root password. One wrong attempt = full system wipe.",goal:'Deduce the root password',heroEmoji:"🤖",capacity:180,
     items:[
-      {id:"a",emoji:"🐉",name:"Dragon's Scale",wt:25,type:"signal",tip:'"I am called by what I protect"'},
-      {id:"b",emoji:"💎",name:"Treasure Inventory",wt:30,type:"signal",tip:"Guards: The Starfire Gem"},
-      {id:"c",emoji:"📖",name:"Naming Lore",wt:40,type:"signal",tip:"Dragons take treasure's name"},
-      {id:"d",emoji:"🗡️",name:"Legendary Sword",wt:65,type:"noise",tip:"Dragon said NO FIGHTING."},
-      {id:"e",emoji:"🛡️",name:"Fire Shield",wt:55,type:"noise",tip:"Won't help if wrong."},
-      {id:"f",emoji:"📚",name:"Dragon Encyclopedia",wt:90,type:"noise",tip:"500 pages. Way too heavy."},
-      {id:"g",emoji:"👤",name:"Hermit's Whisper",wt:20,type:"partial",tip:"Stars and fire..."},
+      {id:"a",emoji:"🧩",name:"Password Policy",wt:25,type:"signal",tip:'"Passwords generated from server boot timestamp"'},
+      {id:"b",emoji:"⏱️",name:"Boot Log",wt:30,type:"signal",tip:"First boot: 2024-03-14T15:09:26Z — Pi day"},
+      {id:"c",emoji:"📖",name:"Encoding Manual",wt:40,type:"signal",tip:'"Timestamps converted to hex, first 8 chars = password"'},
+      {id:"d",emoji:"⚡",name:"Overclocked CPU",wt:65,type:"noise",tip:"Faster processing. Not a brute-force problem."},
+      {id:"e",emoji:"🛡️",name:"Firewall Bypass",wt:55,type:"noise",tip:"Already inside. Firewall is behind you."},
+      {id:"f",emoji:"📚",name:"Sysadmin Handbook",wt:90,type:"noise",tip:"800 pages. No time to read."},
+      {id:"g",emoji:"💬",name:"Slack Message",wt:20,type:"partial",tip:'Retired admin: "something to do with pi..."'},
     ],_r:{
-      perfect:{keys:["a","b","c"],text:'<span class="ok">The dragon\'s name is Starfire.</span>\n\n• <span class="ok">"Called by what I protect"</span>\n• <span class="ok">The Starfire Gem</span>\n• <span class="ok">Dragons take treasure\'s name</span>\n\n<span class="ok">The dragon bows. You pass.</span>',score:100},
-      good:{keys:["a","b"],text:'Protects <span class="ok">Starfire Gem</span> → <span class="ok">"Starfire"</span>.\n\n<span class="maybe">Without lore, not 100% sure.</span>',score:70},
-      partial:{keys:["a","g"],text:'Stars and fire... <span class="maybe">"Starfire"? Guessing.</span>',score:40},
-      hall:{text:'<span class="hall">Encyclopedia says "Ignis." Fight if wrong.</span>',score:5},
-      empty:{text:'<span class="hall">Try "Smaug"?</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Sword + Shield + Encyclopedia = 210 wt, over budget AND useless. Scale + Treasure + Lore = 95 wt, perfect answer. That\'s context engineering.'},
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Password cracked: 65e0a3b2</span>\n\n• <span class="ok">Generated from boot timestamp</span>\n• <span class="ok">Boot: 2024-03-14T15:09:26Z (Pi day!)</span>\n• <span class="ok">Timestamp → hex → first 8 chars</span>\n\n<span class="ok">Mainframe unlocked.</span>',score:100},
+      good:{keys:["a","b"],text:'Password from boot timestamp: <span class="ok">2024-03-14T15:09:26Z</span>.\n\n<span class="maybe">How is it encoded? Hex? Base64? Need encoding spec.</span>',score:70},
+      partial:{keys:["a","g"],text:'Password from timestamp. Slack says "about pi."\n\n<span class="maybe">"pi314"? "piday2024"? Guessing without boot log.</span>',score:40},
+      hall:{text:'<span class="hall">Overclocked CPU = brute-force all 8-char passwords in 3 hours!</span>\n\n<span class="hall">Starting with "password1"...</span>',score:5},
+      empty:{text:'<span class="hall">Try "root" or "toor"?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> CPU (65) + Firewall (55) + Handbook (90) = 210 wt. Over budget AND useless. Policy (25) + Boot log (30) + Encoding (40) = 95 wt, perfect answer. Small, specific, relevant.'},
 ];
 
 // ── Client-side scoring (mirrors server logic) ──
@@ -502,15 +507,15 @@ function localEvaluate(levelIdx, bag) {
   const bagSet = new Set(bag);
   let resp;
 
-  if (bag.length === 0) { resp = r.empty; resp.quality = "empty"; }
-  else if (r.perfect.keys.length === bag.length && r.perfect.keys.every(k => bagSet.has(k))) { resp = r.perfect; resp.quality = "perfect"; }
-  else if (r.good.keys.every(k => bagSet.has(k)) && r.good.keys.length > 0) { resp = r.good; resp.quality = "good"; }
+  if (bag.length === 0) { resp = {...r.empty, quality: "empty"}; }
+  else if (r.perfect.keys.length === bag.length && r.perfect.keys.every(k => bagSet.has(k))) { resp = {...r.perfect, quality: "perfect"}; }
+  else if (r.good.keys.every(k => bagSet.has(k)) && r.good.keys.length > 0) { resp = {...r.good, quality: "good"}; }
   else {
     let sig = 0, noi = 0;
     for (const id of bag) { const it = level.items.find(i => i.id === id); if (it?.type === "signal") sig++; if (it?.type === "noise") noi++; }
-    if (noi >= sig) { resp = r.hall; resp.quality = "hallucination"; }
-    else if (r.partial.keys && r.partial.keys.some(k => bagSet.has(k))) { resp = r.partial; resp.quality = "partial"; }
-    else { resp = r.hall; resp.quality = "hallucination"; }
+    if (noi >= sig) { resp = {...r.hall, quality: "hallucination"}; }
+    else if (r.partial.keys && r.partial.keys.some(k => bagSet.has(k))) { resp = {...r.partial, quality: "partial"}; }
+    else { resp = {...r.hall, quality: "hallucination"}; }
   }
 
   return {
