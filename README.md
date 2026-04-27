@@ -4,15 +4,22 @@
 
 > *"The AI is only as good as the data you feed it."*
 
-Built as an [git initexercise in context engineering and understanding]
+A context engineering training tool.
 
 ## How it works
 
-You're an adventurer with a robot companion and a backpack (= AI context
-window). Pick items to carry, stay under the weight limit. Right items →
-the AI solves the puzzle. Wrong items → 💥 the robot explodes.
+You're a robot with a backpack (= AI context window). Each level is a
+tech puzzle. Pick data fragments to carry, but stay under the weight limit.
+Right items → the AI solves the problem. Wrong items → 💥 the robot explodes.
 
-**Zero LLM calls.** Pre-crafted decision trees. Zero cost, zero latency.
+**Zero LLM calls.** All AI responses are pre-crafted decision trees.
+Zero cost, zero latency, works offline.
+
+### Login & Leaderboard
+
+Players pick a **robot designation** (generated client-side, e.g. "Bot-42 Codebreaker") —
+no personal data collected. Scores are saved to a Turso database and displayed
+on a live leaderboard.
 
 ## Architecture
 
@@ -22,7 +29,7 @@ context-quest/
 ├── package.json                       # Dependencies (@libsql/client)
 ├── netlify/functions/
 │   ├── shared.js                      # DB client, game data, scoring
-│   ├── names.js          GET          # Generate elvish names
+│   ├── names.js          GET          # Generate robot designations
 │   ├── login.js          POST         # Register player
 │   ├── levels.js         GET          # Level data (no answers)
 │   ├── submit.js         POST         # Evaluate backpack → AI response
@@ -32,8 +39,8 @@ context-quest/
 ├── src/                               # Static frontend (published)
 │   ├── index.html
 │   ├── css/style.css
-│   ├── js/app.js
-│   └── img/robot_strip.png
+│   ├── js/app.js                      # Game engine + offline fallback
+│   └── img/robot_strip.png            # 9-frame sprite sheet
 └── README.md
 ```
 
@@ -45,17 +52,11 @@ Both have generous free tiers. Total cost: $0.
 ### Step 1: Create a Turso database (free)
 
 ```bash
-# Install Turso CLI
 curl -sSfL https://get.tur.so/install.sh | bash
-
-# Sign up & create database
 turso auth signup
 turso db create context-quest
 turso db show context-quest --url
-# → libsql://context-quest-YOURNAME.turso.io
-
 turso db tokens create context-quest
-# → eyJhb... (save this token)
 ```
 
 ### Step 2: Push to GitHub
@@ -70,43 +71,34 @@ gh repo create context-quest --public --push
 ### Step 3: Deploy on Netlify
 
 1. Go to [app.netlify.com](https://app.netlify.com)
-2. Click **"Add new site"** → **"Import an existing project"**
-3. Connect your GitHub repo
-4. Netlify auto-detects `netlify.toml` — no config needed
-5. Go to **Site settings** → **Environment variables** and add:
+2. **"Add new site"** → **"Import an existing project"** → connect GitHub repo
+3. Netlify auto-detects `netlify.toml` — no config needed
+4. **Site settings** → **Environment variables** → add:
 
 | Key                  | Value                                        |
 |----------------------|----------------------------------------------|
 | `TURSO_URL`          | `libsql://context-quest-YOURNAME.turso.io`   |
 | `TURSO_AUTH_TOKEN`   | `eyJhb...` (the token from step 1)           |
 
-6. Click **Deploy**. Done! You get a URL like `context-quest.netlify.app`
-
-### Step 4 (optional): Custom domain
-
-In Netlify: **Domain settings** → **Add custom domain** → follow DNS instructions.
+5. **Deploy**. Done!
 
 ## Run locally
 
 ```bash
 npm install
-
-# Option A: With Netlify CLI (recommended)
 npm install -g netlify-cli
 netlify dev
 # → http://localhost:8888
-
-# Option B: Without Turso (uses local SQLite file)
-# Just don't set TURSO_URL — shared.js falls back to file:local.db
 ```
+
+Or just open `src/index.html` directly — the game works fully offline
+(leaderboard requires Turso).
 
 ## API
 
-All endpoints are at `/api/*` and redirect to Netlify Functions.
-
 | Endpoint           | Method | Description                         |
 |--------------------|--------|-------------------------------------|
-| `/api/names`       | GET    | 4 random elvish names               |
+| `/api/names`       | GET    | 4 random robot designations         |
 | `/api/login`       | POST   | Register `{name}` → `{playerId}`   |
 | `/api/levels`      | GET    | Level data (no answers)             |
 | `/api/submit`      | POST   | Evaluate `{level, bag}`             |
@@ -118,20 +110,16 @@ All endpoints are at `/api/*` and redirect to Netlify Functions.
 
 | # | Setting | Puzzle | Lesson |
 |---|---------|--------|--------|
-| 1 | 🧙 Cave | Decode a locked door | Right data for the right problem |
-| 2 | 🧝 Forest | Find the poison source | Heavy ≠ valuable |
-| 3 | 🕵️ Castle | Solve a theft | Source authority matters |
-| 4 | 👩‍🔧 Sky | Fix a failing airship | Check what changed recently |
-| 5 | ⚔️ Dungeon | Answer a dragon's riddle | Small + specific > large + generic |
+| 1 | 🔐 Firewall | Crack encrypted gateway | Right data for the right problem |
+| 2 | 💾 Data Stream | Trace corrupted pipeline | Heavy docs ≠ useful data |
+| 3 | 🔓 Breach | Find API key thief | Follow the money (source authority) |
+| 4 | ☸️ Cluster | Fix CrashLooping pod | Logs + spec + changelog > dashboards |
+| 5 | 🖥️ Mainframe | Deduce root password | Small + specific > large + generic |
 
 ## Privacy
 
-Zero personal data. Elvish names only. Database stores: name, score, timestamp.
-
-## License
-
-MIT
+Zero personal data. Robot designations only. Database stores: designation, score, timestamp.
 
 ---
 
-Created by [Velmira Georgieva](https://github.com/VelmiraPetkova)
+Created by [Velmira Georgieva](https://github.com/VelmiraPetkova) — a context engineering training tool.
