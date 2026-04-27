@@ -111,6 +111,13 @@ function showLeaderboardFromLogin() {
   render();
 }
 
+function changeName() {
+  localStorage.removeItem("cq_player");
+  player = null;
+  state.screen = "login";
+  render();
+}
+
 // ── INTRO ──
 
 function renderIntro() {
@@ -127,8 +134,9 @@ function renderIntro() {
         <div class="rule"><span class="rule-i">🤖</span>The AI answers based ONLY on what's in your backpack</div>
       </div>
       <button class="btn btn-go" onclick="startGame()" style="max-width:220px;margin:0 auto">Begin Quest →</button>
-      <div style="margin-top:12px;text-align:center">
-        <button class="btn btn-clear" onclick="state.screen='leaderboard';state._returnTo='intro';render()" style="max-width:180px;margin:0 auto">🏆 Leaderboard</button>
+      <div style="display:flex;gap:8px;max-width:300px;margin:12px auto 0">
+        <button class="btn btn-clear" onclick="state.screen='leaderboard';state._returnTo='intro';render()" style="flex:1">🏆 Leaderboard</button>
+        <button class="btn btn-clear" onclick="changeName()" style="flex:1">🔄 Change Name</button>
       </div>
     </div>`;
 }
@@ -352,7 +360,14 @@ async function renderLeaderboard() {
     <button class="btn btn-clear" onclick="state.screen=state._returnTo||'intro';render()" style="max-width:200px;margin:16px auto 0;display:block">← Back</button>
   </div>`;
 
-  const [entries, stats] = await Promise.all([api.get("/api/leaderboard"), api.get("/api/stats")]);
+  let entries = [], stats = { totalPlayers: 0, totalGames: 0, avgScore: 0, topScore: 0 };
+  try {
+    [entries, stats] = await Promise.all([api.get("/api/leaderboard"), api.get("/api/stats")]);
+  } catch(e) {
+    const lbEl = $("#lb-content");
+    if (lbEl) lbEl.innerHTML = `<div class="bp-empty">Leaderboard needs Turso database.<br>Play the game first — scores are tracked locally!</div>`;
+    return;
+  }
 
   const lbEl = $("#lb-content");
   if (!entries.length) {
@@ -400,15 +415,9 @@ function spawnParticles() {
   }
 }
 
-// ═══════════════════════════════════════════════════
-// OFFLINE DATA — full levels + client-side scoring
-// Works without any backend (open index.html directly)
-// ═══════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════
 // OFFLINE DATA — full levels + client-side scoring
 // Works without any backend (open index.html directly)
-// ═══════════════════════════════════════════════════
 
 const OFFLINE_LEVELS = [
   {tag:"LEVEL 1 — THE FIREWALL",title:"The Encrypted Gateway",desc:"A locked firewall blocks access to the next sector. Crack the encryption.",goal:"Bypass the encrypted firewall",heroEmoji:"🤖",capacity:150,
