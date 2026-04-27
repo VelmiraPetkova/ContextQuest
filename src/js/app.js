@@ -1,5 +1,6 @@
 // Context Quest — Frontend with Login & Leaderboard
 
+
 const $ = (s) => document.querySelector(s);
 const game = $("#game");
 
@@ -344,7 +345,7 @@ function renderEnd() {
       <button class="btn btn-go" onclick="startGame()">Play Again</button>
       <button class="btn btn-next" onclick="state.screen='leaderboard';state._returnTo='end';render()">🏆 Leaderboard</button>
     </div>
-    <div class="credit">Built for <a href="https://cloudnativedays.ro">CloudNativeDays Romania 2026</a></div>
+    <div class="credit">A context engineering training tool</div>
   </div>`;
   renderPips();
 }
@@ -415,9 +416,15 @@ function spawnParticles() {
   }
 }
 
-
+// ═══════════════════════════════════════════════════
 // OFFLINE DATA — full levels + client-side scoring
 // Works without any backend (open index.html directly)
+// ═══════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════
+// OFFLINE DATA — full levels + client-side scoring
+// Works without any backend (open index.html directly)
+// ═══════════════════════════════════════════════════
 
 const OFFLINE_LEVELS = [
   {tag:"LEVEL 1 — THE FIREWALL",title:"The Encrypted Gateway",desc:"A locked firewall blocks access to the next sector. Crack the encryption.",goal:"Bypass the encrypted firewall",heroEmoji:"🤖",capacity:150,
