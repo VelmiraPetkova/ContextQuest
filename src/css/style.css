@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+:root {
+  --bg: #1a1025;
+  --ground: #2d1f3d;
+  --surface: #251a35;
+  --panel: #1e1530;
+  --border: #3d2d55;
+  --text: #e8dff5;
+  --dim: #8a7aa5;
+  --gold: #ffd700;
+  --gold-g: rgba(255,215,0,0.15);
+  --green: #5cdb5c;
+  --green-g: rgba(92,219,92,0.12);
+  --red: #ff5c5c;
+  --red-g: rgba(255,92,92,0.12);
+  --blue: #5ca0ff;
+  --purple: #b07cff;
+  --orange: #ffaa40;
+}
+
+* { margin:0; padding:0; box-sizing:border-box }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body::before {
+  content: ''; position: fixed; inset: 0; opacity: .035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9999;
+}
+
+.app { max-width: 700px; margin: 0 auto; padding: 12px 14px 80px }
+
+/* ── Header ── */
+.hdr { text-align: center; padding: 24px 0 8px }
+.hdr-tag { font-family: 'Silkscreen', cursive; font-size: 10px; color: var(--gold); letter-spacing: .2em; margin-bottom: 6px }
+.hdr h1 { font-family: 'Silkscreen', cursive; font-size: clamp(22px,5vw,32px); color: var(--gold); text-shadow: 0 0 20px rgba(255,215,0,0.3); margin-bottom: 4px }
+.hdr p { font-size: 13px; color: var(--dim); max-width: 380px; margin: 0 auto }
+
+/* ── Progress ── */
+.progress { display: flex; justify-content: center; gap: 4px; margin: 16px 0 12px }
+.prog-pip { width: 36px; height: 6px; border-radius: 3px; background: var(--ground); border: 1px solid var(--border) }
+.prog-pip.done { background: var(--green); border-color: var(--green) }
+.prog-pip.active { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 8px rgba(255,215,0,0.3) }
+.prog-pip.fail { background: var(--red); border-color: var(--red) }
+
+/* ── Scene ── */
+.scene { position: relative; background: var(--surface); border: 2px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 12px }
+.scene-top { position: relative; height: 200px; background: linear-gradient(180deg, #0d0820 0%, #1a1030 40%, var(--surface) 100%); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; overflow: hidden }
+.scene-top::before {
+  content: ''; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, #fff 50%, transparent 100%),
+    radial-gradient(1px 1px at 25% 35%, #fff 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 40% 10%, var(--gold) 50%, transparent 100%),
+    radial-gradient(1px 1px at 55% 25%, #fff 50%, transparent 100%),
+    radial-gradient(1px 1px at 70% 40%, #fff 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 85% 15%, var(--blue) 50%, transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, #fff 50%, transparent 100%);
+  animation: twinkle 3s ease-in-out infinite alternate;
+}
+@keyframes twinkle { 0% { opacity: .6 } 100% { opacity: 1 } }
+.scene-ground { height: 4px; background: repeating-linear-gradient(90deg, var(--green) 0px, var(--green) 8px, #4a4 8px, #4a4 10px) }
+
+/* ── Hero ── */
+.hero-wrap { position: relative; z-index: 2 }
+.hero { font-size: 48px; line-height: 1; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); transition: transform .3s; animation: bob 2s ease-in-out infinite }
+.hero.heavy { animation: shake .3s ease-in-out }
+.hero.fallen { animation: fall 1s ease-in forwards }
+.hero.celebrate { animation: jump .6s ease-in-out }
+@keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+@keyframes shake { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-8px) } 75% { transform: translateX(8px) } }
+@keyframes fall { 0% { transform: translateY(0) scale(1); opacity: 1 } 100% { transform: translateY(120px) scale(0.3); opacity: 0 } }
+@keyframes jump { 0% { transform: translateY(0) } 30% { transform: translateY(-30px) scale(1.1) } 60% { transform: translateY(-15px) } 100% { transform: translateY(0) } }
+
+.bp-bar { position: absolute; top: -28px; left: 50%; transform: translateX(-50%); width: 100px; height: 8px; background: var(--ground); border-radius: 4px; border: 1px solid var(--border); overflow: hidden }
+.bp-fill { height: 100%; border-radius: 3px; transition: width .3s, background .3s }
+
+.scene-info { padding: 16px; text-align: center }
+.scene-level { font-family: 'Silkscreen', cursive; font-size: 10px; color: var(--gold); letter-spacing: .15em; margin-bottom: 4px }
+.scene-title { font-size: 18px; font-weight: 800; margin-bottom: 4px }
+.scene-obj { font-size: 12px; color: var(--dim); line-height: 1.4 }
+
+/* ── Backpack ── */
+.backpack { background: var(--panel); border: 2px dashed var(--border); border-radius: 14px; min-height: 80px; padding: 12px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; transition: border-color .2s, background .2s; position: relative }
+.backpack.over { border-color: var(--gold); background: var(--gold-g) }
+.backpack.overweight { border-color: var(--red); background: var(--red-g) }
+.bp-label { position: absolute; top: -10px; left: 16px; font-family: 'Silkscreen', cursive; font-size: 9px; letter-spacing: .15em; color: var(--dim); background: var(--bg); padding: 0 6px }
+.bp-weight { position: absolute; top: -10px; right: 16px; font-family: 'Silkscreen', cursive; font-size: 9px; background: var(--bg); padding: 0 6px; transition: color .2s }
+.bp-weight.over { color: var(--red) }
+.bp-empty { width: 100%; text-align: center; font-size: 12px; color: var(--dim); padding: 16px 0; font-style: italic }
+
+/* ── Shelf ── */
+.shelf-label { font-family: 'Silkscreen', cursive; font-size: 9px; color: var(--dim); letter-spacing: .15em; margin-bottom: 8px }
+.shelf { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; min-height: 40px; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px }
+
+/* ── Items ── */
+.item { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; background: var(--surface); border: 2px solid var(--border); cursor: grab; touch-action: none; font-size: 12px; font-weight: 600; transition: transform .15s, box-shadow .15s, border-color .15s; position: relative }
+.item:active { cursor: grabbing; transform: scale(1.06); z-index: 100 }
+.item:hover { border-color: var(--dim) }
+.item .emoji { font-size: 18px }
+.item .wt { font-family: 'Silkscreen', cursive; font-size: 8px; color: var(--dim); background: var(--ground); padding: 1px 5px; border-radius: 4px }
+.item.in-bag { border-color: var(--gold); background: var(--gold-g) }
+
+.item.signal { border-color: var(--green); background: var(--green-g) }
+.item.signal::after { content: '✦'; position: absolute; top: -4px; right: -4px; font-size: 10px; color: var(--green) }
+.item.noise { border-color: var(--red); background: var(--red-g); opacity: .7 }
+.item.noise::after { content: '✕'; position: absolute; top: -4px; right: -4px; font-size: 10px; color: var(--red) }
+.item.partial { border-color: var(--orange); background: rgba(255,170,64,0.1) }
+.item.partial::after { content: '◐'; position: absolute; top: -4px; right: -4px; font-size: 10px; color: var(--orange) }
+.item.locked { pointer-events: none; opacity: .55 }
+
+/* ── Buttons ── */
+.actions { display: flex; gap: 8px; margin-bottom: 14px }
+.btn { flex: 1; padding: 12px; border-radius: 10px; border: 2px solid transparent; font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: .2s; text-align: center }
+.btn:disabled { opacity: .3; cursor: not-allowed }
+.btn-go { background: var(--gold); color: #1a1025; border-color: var(--gold) }
+.btn-go:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(255,215,0,0.3) }
+.btn-clear { background: transparent; border-color: var(--border); color: var(--dim) }
+.btn-clear:hover:not(:disabled) { border-color: var(--dim) }
+.btn-next { background: var(--green); color: #1a1025; border-color: var(--green) }
+.btn-next:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(92,219,92,0.3) }
+
+/* ── Result card ── */
+.result { display: none; margin-bottom: 14px }
+.result.show { display: block; animation: slideUp .5s ease }
+.r-card { background: var(--panel); border: 2px solid var(--border); border-radius: 14px; padding: 18px; position: relative; overflow: hidden }
+.r-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px }
+.r-card.good::before { background: var(--green) }
+.r-card.bad::before { background: var(--red) }
+.r-card.mid::before { background: var(--orange) }
+.r-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px }
+.r-avatar { font-size: 24px }
+.r-who { font-family: 'Silkscreen', cursive; font-size: 9px; color: var(--dim); letter-spacing: .1em }
+.r-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap }
+.r-text .hall { color: var(--red); background: var(--red-g); padding: 1px 4px; border-radius: 3px }
+.r-text .ok { color: var(--green) }
+.r-text .maybe { color: var(--orange); font-style: italic }
+
+/* ── Verdict ── */
+.verdict { display: none }
+.verdict.show { display: block; animation: slideUp .5s ease }
+.v-card { background: var(--panel); border: 2px solid var(--border); border-radius: 14px; padding: 20px; text-align: center }
+.v-icon { font-size: 44px; margin-bottom: 6px }
+.v-title { font-family: 'Silkscreen', cursive; font-size: 16px; margin-bottom: 4px; color: var(--gold) }
+.v-desc { font-size: 12px; color: var(--dim); margin-bottom: 14px; line-height: 1.5 }
+.v-stats { display: flex; justify-content: center; gap: 20px; margin-bottom: 14px }
+.v-stat { text-align: center }
+.v-stat-v { font-family: 'Silkscreen', cursive; font-size: 20px; font-weight: 700 }
+.v-stat-l { font-size: 9px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase }
+.v-lesson { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 11px; color: var(--dim); line-height: 1.55; text-align: left; margin-bottom: 14px }
+.v-lesson strong { color: var(--purple) }
+
+/* ── Screens ── */
+.screen { display: none; text-align: center; padding: 40px 16px }
+.screen.show { display: block; animation: slideUp .5s ease }
+.screen p { font-size: 13px; color: var(--dim); max-width: 380px; margin: 0 auto 16px; line-height: 1.6 }
+.rules { background: var(--panel); border: 2px solid var(--border); border-radius: 14px; padding: 16px; max-width: 400px; margin: 0 auto 20px; text-align: left }
+.rule { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; font-size: 12px; line-height: 1.5 }
+.rule:last-child { margin-bottom: 0 }
+.rule-i { font-size: 16px; flex-shrink: 0 }
+
+.final-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 360px; margin: 20px auto }
+.f-cell { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 8px; text-align: center }
+.f-val { font-family: 'Silkscreen', cursive; font-size: 24px; font-weight: 700 }
+.f-label { font-size: 9px; color: var(--dim); letter-spacing: .08em; margin-top: 2px }
+.credit { margin-top: 20px; font-size: 10px; color: var(--dim); text-align: center }
+.credit a { color: var(--purple); text-decoration: none }
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes blink { 0%,80%,100% { opacity: .25 } 40% { opacity: 1 } }
+
+/* ── Robot Sprite ── */
+.robot-wrap{position:relative;z-index:2;width:69px;height:80px;margin:0 auto}
+.robot{width:69px;height:80px;background:url('/img/robot_strip.png') 0 0 no-repeat;background-size:621px 80px}
+.robot.walk{animation:walk .8s steps(8) infinite}
+.robot.idle{background-position:0 0;animation:none}
+.robot.heavy{animation:heavy-wobble .4s ease-in-out infinite}
+.robot.explode{animation:explode-anim .8s ease-out forwards}
+.robot.celebrate{animation:celebrate .6s ease-in-out}
+@keyframes walk{from{background-position:0 0}to{background-position:-552px 0}}
+@keyframes heavy-wobble{0%,100%{transform:rotate(0) translateY(0)}25%{transform:rotate(-5deg) translateY(2px)}75%{transform:rotate(5deg) translateY(2px)}}
+@keyframes explode-anim{0%{transform:scale(1);opacity:1;filter:brightness(1)}30%{transform:scale(1.3);filter:brightness(3) saturate(0)}60%{transform:scale(1.6);opacity:.6;filter:brightness(2) hue-rotate(30deg)}100%{transform:scale(2);opacity:0;filter:brightness(5) blur(4px)}}
+@keyframes celebrate{0%{transform:translateY(0)}30%{transform:translateY(-25px) scale(1.1)}60%{transform:translateY(-10px)}100%{transform:translateY(0)}}
+.explosion{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);pointer-events:none;display:none}
+.explosion.show{display:block}

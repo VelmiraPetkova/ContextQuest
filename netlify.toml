@@ -1,0 +1,12 @@
+[build]
+  publish = "src"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# SPA-style: serve index.html for all non-file routes
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

@@ -1,0 +1,9 @@
+{
+  "name": "context-quest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Context engineering game — Netlify + Turso edition",
+  "dependencies": {
+    "@libsql/client": "^0.6.0"
+  }
+}
