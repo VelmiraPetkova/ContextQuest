@@ -1,11 +1,12 @@
 [build]
   publish = "src"
   functions = "netlify/functions"
+  command = "npm install"
 
 [functions]
-  node_bundler = "esbuild"
+  node_bundler = "nft"
+  external_node_modules = ["@libsql/client"]
 
-# SPA-style: serve index.html for all non-file routes
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
