@@ -89,7 +89,7 @@ function renderLevel(){
   const typeMap={};if(state.lastResult&&state.lastResult.items)state.lastResult.items.forEach(it=>typeMap[it.id]=it.type);
   const shelfItems=L.items.filter(i=>!state.bag.includes(i.id));
   const bagItems=L.items.filter(i=>state.bag.includes(i.id));
-  const isTutorial=L.tutorial===true;
+  const isTutorial = L.tutorial === true || (OFFLINE_LEVELS[state.level] && OFFLINE_LEVELS[state.level].tutorial === true);
 
   let html=`<div class="scene">
     <div class="scene-top"><div class="robot-wrap">
@@ -104,7 +104,7 @@ function renderLevel(){
   // Briefing
   html+=`<div class="card" style="margin-bottom:12px">
     <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.15em;margin-bottom:8px">📋 SITUATION BRIEFING</div>
-    <div style="font-size:13px;line-height:1.6;color:var(--text)">${L.briefing||L.desc}</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--text)">${L.briefing || (OFFLINE_LEVELS[state.level] && OFFLINE_LEVELS[state.level].briefing) || L.desc}</div>
     <div style="margin-top:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
       <div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--green);letter-spacing:.1em;margin-bottom:4px">🎯 YOUR MISSION</div>
       <div style="font-size:13px;font-weight:600;color:var(--green)">${L.goal}</div>
@@ -158,13 +158,15 @@ function itemHTML(item,inBag,typeMap,locked,isTutorial){
 }
 
 function showHint(){
-  const L=levels[state.level];if(!L||!L.hint)return;
+  const L=levels[state.level];
+  const hint = (L && L.hint) || (OFFLINE_LEVELS[state.level] && OFFLINE_LEVELS[state.level].hint);
+  if(!hint)return;
   state.hintUsed=true;
   const box=$("#hint-box");if(!box)return;
   box.style.display="block";
   box.innerHTML=`<div class="card" style="border-color:var(--gold)">
     <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.1em;margin-bottom:6px">💡 HINT</div>
-    <div style="font-size:12px;color:var(--text);line-height:1.5">${L.hint}</div>
+    <div style="font-size:12px;color:var(--text);line-height:1.5">${hint}</div>
   </div>`;
   box.scrollIntoView({behavior:"smooth",block:"center"});
 }
