@@ -1,13 +1,14 @@
-// Context Quest — Full UX Rewrite
-const $ = (s) => document.querySelector(s);
-const game = $("#game");
-let levels = [];
-let player = null;
-let state = { screen:"login", level:0, bag:[], scores:[], phase:"pick", lastResult:null, hintUsed:false };
+// Context Quest — v2 UX rewrite
+// Zero-click start, guided tutorial, contextual hints
+const $=s=>document.querySelector(s);
+const game=$("#game");
+let levels=[];
+let player=null;
+let state={screen:"login",level:0,bag:[],scores:[],phase:"pick",lastResult:null,hintUsed:false,tutStep:0};
 
-const api = {
-  get: (u) => fetch(u).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-  post: (u, b) => fetch(u, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(b) }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+const api={
+  get:u=>fetch(u).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}),
+  post:(u,b)=>fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}),
 };
 
 const _pre=["Unit","Bot","Mech","Byte","Chip","Gear","Bolt","Wire","Node","Core","Flux","Ping","Zap","Arc","Hex","Bit","Nano","Robo","Droid","Spark"];
@@ -16,31 +17,30 @@ const _ttl=["Sparkplug","Codebreaker","Debugger","Firewall","Compiler","Overcloc
 function _pk(a){return a[Math.floor(Math.random()*a.length)]}
 function genRobotNames(n){const s=new Set(),r=[];while(r.length<n){const nm=_pk(_pre)+"-"+_pk(_suf)+" "+_pk(_ttl);if(!s.has(nm)){s.add(nm);r.push(nm);}}return r;}
 
-
-
+// ── Render ──
 function render(){
-  const screens={login:renderLogin,intro:renderIntro,play:renderLevel,end:renderEnd,leaderboard:renderLeaderboard};
+  const screens={login:renderLogin,intro:renderIntro,play:renderLevel,end:renderEnd,leaderboard:renderLeaderboard,howto:renderHowTo};
   (screens[state.screen]||renderLogin)();
   renderPips();
 }
 function renderPips(){
   const el=$("#progress");
-  const totalLevels = Math.max(levels.length, OFFLINE_LEVELS.length);
-  if(!el||!totalLevels){if(el)el.innerHTML="";return;}
-  el.innerHTML=Array.from({length:totalLevels},(_,i)=>{let c="";if(i<state.level)c=state.scores[i]>=60?"done":"fail";else if(i===state.level&&state.screen==="play")c="active";return`<div class="prog-pip ${c}"></div>`;}).join("");
+  const total=Math.max(levels.length,OFFLINE_LEVELS.length);
+  if(!el||!total){if(el)el.innerHTML="";return;}
+  el.innerHTML=Array.from({length:total},(_,i)=>{let c="";if(i<state.level)c=state.scores[i]>=60?"done":"fail";else if(i===state.level&&state.screen==="play")c="active";return`<div class="prog-pip ${c}"></div>`}).join("");
 }
 
-// ── LOGIN ──
+// ── Login ──
 async function renderLogin(){
   const saved=localStorage.getItem("cq_player");
   if(saved){player=JSON.parse(saved);state.screen="intro";try{levels=await api.get("/api/levels")}catch(e){levels=OFFLINE_LEVELS}if(!levels||!levels.length)levels=OFFLINE_LEVELS;render();return;}
   game.innerHTML=`<div class="screen show">
     <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot walk"></div></div>
     <div class="hdr"><h1>Choose Your Designation</h1></div>
-    <p>Every robot needs a designation. Pick one — this is how you'll appear on the leaderboard.</p>
+    <p>Pick a robot name for the leaderboard.</p>
     <div id="name-options" style="display:flex;flex-direction:column;gap:8px;max-width:320px;margin:0 auto 16px"></div>
     <button class="btn btn-clear" onclick="refreshNames()" style="max-width:200px;margin:0 auto 12px;display:block">🎲 Roll new names</button>
-    <div style="text-align:center;margin-top:8px"><button class="btn btn-clear" onclick="showLeaderboardFromLogin()" style="max-width:200px;margin:0 auto">🏆 View Leaderboard</button></div>
+    <div style="text-align:center;margin-top:8px"><button class="btn btn-clear" onclick="showLeaderboardFromLogin()" style="max-width:200px;margin:0 auto">🏆 Leaderboard</button></div>
   </div>`;
   loadNames();
 }
@@ -50,52 +50,62 @@ function showLeaderboardFromLogin(){state.screen="leaderboard";state._returnTo="
 function changeName(){localStorage.removeItem("cq_player");player=null;state.screen="login";render();}
 async function pickName(name){let id="local-"+Math.random().toString(36).slice(2);try{const res=await api.post("/api/login",{name});id=res.playerId}catch(e){}player={playerId:id,name};localStorage.setItem("cq_player",JSON.stringify(player));try{levels=await api.get("/api/levels")}catch(e){levels=OFFLINE_LEVELS}if(!levels||!levels.length)levels=OFFLINE_LEVELS;state.screen="intro";render();}
 
-// ── INTRO ──
+// ── Intro (minimal — skip to game fast) ──
 function renderIntro(){
   game.innerHTML=`<div class="screen show">
     <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot walk"></div></div>
-    <div class="hdr"><h1>Ready, ${player?player.name.split(" ")[0]:"Robot"}?</h1></div>
-    <p style="font-size:14px;color:var(--text);max-width:440px;margin:0 auto 16px;line-height:1.6">
-      You're a robot with a backpack. Your backpack represents an AI's context window — the data it can see when solving a problem.<br><br>
-      Each level describes a situation and gives you several data items. Pick the ones that help solve the problem, but watch the weight — your backpack has a limit!
+    <div class="hdr"><h1>Hey, ${player?player.name.split(" ")[0]:"Robot"}!</h1></div>
+    <p style="font-size:15px;color:var(--text);max-width:400px;margin:0 auto 20px;line-height:1.6">
+      Pick the right data. The AI solves the puzzle — or explodes trying. 💥
     </p>
-    <div class="rules">
-      <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.15em;margin-bottom:10px">HOW TO PLAY</div>
-      <div class="rule"><span class="rule-i">📖</span>Read the situation briefing to understand the problem</div>
-      <div class="rule"><span class="rule-i">🔍</span>Read each item's description — is it useful or junk?</div>
-      <div class="rule"><span class="rule-i">👆</span>Click items to add or remove them from your backpack</div>
-      <div class="rule"><span class="rule-i">⚖️</span>Stay under the weight limit (heavy ≠ valuable!)</div>
-      <div class="rule"><span class="rule-i">🤖</span>The AI only sees what's in your backpack — choose wisely</div>
-      <div class="rule"><span class="rule-i">💡</span>Stuck? Hit the Hint button for a nudge</div>
-    </div>
-    <p style="font-size:12px;color:var(--dim);max-width:400px;margin:0 auto 16px">Level 0 is a tutorial — it walks you through the mechanics step by step.</p>
     <button class="btn btn-go" onclick="startGame()" style="max-width:220px;margin:0 auto">Start →</button>
-    <div style="display:flex;gap:8px;max-width:300px;margin:12px auto 0">
+    <div style="display:flex;gap:8px;max-width:340px;margin:12px auto 0">
+      <button class="btn btn-clear" onclick="state.screen='howto';render()" style="flex:1">❓ How to play</button>
       <button class="btn btn-clear" onclick="state.screen='leaderboard';state._returnTo='intro';render()" style="flex:1">🏆 Leaderboard</button>
-      <button class="btn btn-clear" onclick="changeName()" style="flex:1">🔄 Change Name</button>
+      <button class="btn btn-clear" onclick="changeName()" style="flex:1">🔄 Name</button>
     </div>
   </div>`;
 }
+
+// ── How To Play (moved to separate screen) ──
+function renderHowTo(){
+  game.innerHTML=`<div class="screen show">
+    <div class="hdr"><h1>How To Play</h1></div>
+    <div class="rules" style="max-width:440px">
+      <div class="rule"><span class="rule-i">📖</span>Read the situation — what problem needs solving?</div>
+      <div class="rule"><span class="rule-i">🔍</span>Read each item's description — is it useful or junk?</div>
+      <div class="rule"><span class="rule-i">👆</span>Tap items to pack them in your backpack</div>
+      <div class="rule"><span class="rule-i">⚖️</span>Stay under the weight limit (heavy ≠ valuable!)</div>
+      <div class="rule"><span class="rule-i">🤖</span>The AI solves the problem using ONLY your backpack</div>
+      <div class="rule"><span class="rule-i">💡</span>Stuck? Hit the Hint button</div>
+    </div>
+    <p style="font-size:12px;color:var(--dim);max-width:380px;margin:0 auto 16px">The first level is a guided tutorial that walks you through step by step.</p>
+    <button class="btn btn-clear" onclick="state.screen='intro';render()" style="max-width:200px;margin:0 auto">← Back</button>
+  </div>`;
+}
+
 function startGame(){
-  // Ensure tutorial is at index 0
-  if (levels.length && levels[0].tag !== "TUTORIAL") {
-    const tut = OFFLINE_LEVELS.find(l => l.tutorial === true);
-    if (tut) levels.unshift(tut);
-  }
-  if (!levels.length) levels = OFFLINE_LEVELS;
-  state={screen:"play",level:0,bag:[],scores:[],phase:"pick",lastResult:null,hintUsed:false};
+  if(levels.length&&levels[0].tag!=="TUTORIAL"){const tut=OFFLINE_LEVELS.find(l=>l.tutorial===true);if(tut)levels.unshift(tut);}
+  if(!levels.length)levels=OFFLINE_LEVELS;
+  state={screen:"play",level:0,bag:[],scores:[],phase:"pick",lastResult:null,hintUsed:false,tutStep:0};
   render();
 }
 
-// ── LEVEL ──
+// ── Helper: get offline level by tag match ──
+function getOfflineLevel(idx){
+  const L=levels[idx];if(!L)return OFFLINE_LEVELS[idx];
+  const match=OFFLINE_LEVELS.find(ol=>ol.tag===L.tag);
+  if(match)return match;
+  const hasServerTut=levels.some(l=>l.tag==="TUTORIAL");
+  if(!hasServerTut&&OFFLINE_LEVELS[0]&&OFFLINE_LEVELS[0].tutorial)return OFFLINE_LEVELS[idx+1];
+  return OFFLINE_LEVELS[idx];
+}
+
+// ── Level Render ──
 function renderLevel(){
   const L=levels[state.level];if(!L)return;
-  const offL = getOfflineLevel(state.level);
-  // Merge longer tips from offline data
-  const items = L.items.map(item => {
-    const offItem = offL && offL.items ? offL.items.find(oi => oi.id === item.id) : null;
-    return { ...item, tip: (offItem && offItem.tip && offItem.tip.length > (item.tip||'').length) ? offItem.tip : item.tip };
-  });
+  const offL=getOfflineLevel(state.level);
+  const items=L.items.map(item=>{const oi=offL&&offL.items?offL.items.find(o=>o.id===item.id):null;return{...item,tip:(oi&&oi.tip&&oi.tip.length>(item.tip||'').length)?oi.tip:item.tip};});
   const usedWt=state.bag.reduce((s,id)=>s+items.find(i=>i.id===id).wt,0);
   const pct=Math.min(usedWt/L.capacity*100,100);
   const over=usedWt>L.capacity;
@@ -105,7 +115,10 @@ function renderLevel(){
   const typeMap={};if(state.lastResult&&state.lastResult.items)state.lastResult.items.forEach(it=>typeMap[it.id]=it.type);
   const shelfItems=items.filter(i=>!state.bag.includes(i.id));
   const bagItems=items.filter(i=>state.bag.includes(i.id));
-  const isTutorial = L.tutorial === true || (offL && offL.tutorial === true);
+  const isTutorial=L.tutorial===true||(offL&&offL.tutorial===true);
+  const offItems=offL&&offL.items?offL.items:items;
+  const signalCount=offItems.filter(i=>i.type==="signal").length;
+  const totalItems=items.length;
 
   let html=`<div class="scene">
     <div class="scene-top"><div class="robot-wrap">
@@ -119,36 +132,27 @@ function renderLevel(){
 
   // Briefing
   html+=`<div class="card" style="margin-bottom:12px">
-    <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.15em;margin-bottom:8px">📋 SITUATION BRIEFING</div>
-    <div style="font-size:13px;line-height:1.6;color:var(--text)">${L.briefing || (offL && offL.briefing) || L.desc}</div>
+    <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.15em;margin-bottom:8px">📋 SITUATION</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--text)">${L.briefing||(offL&&offL.briefing)||L.desc}</div>
     <div style="margin-top:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
-      <div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--green);letter-spacing:.1em;margin-bottom:4px">🎯 YOUR MISSION</div>
+      <div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--green);letter-spacing:.1em;margin-bottom:4px">🎯 MISSION</div>
       <div style="font-size:13px;font-weight:600;color:var(--green)">${L.goal}</div>
     </div>
   </div>`;
 
-  // Count how many signal items exist for guidance
-  const offItems = offL && offL.items ? offL.items : items;
-  const signalCount = offItems.filter(i => i.type === "signal").length;
-  const totalItems = items.length;
-
-  // Backpack
-  html+=`<div class="backpack ${over?"overweight":""}" id="backpack" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDropBag(event)">
-    <span class="bp-label">🎒 BACKPACK (${bagItems.length} packed)</span>
-    <span class="bp-weight ${over?"over":""}">${usedWt} / ${L.capacity} wt</span>
-    ${bagItems.length===0?`<div class="bp-empty" style="text-align:center">
-      <div style="font-size:24px;margin-bottom:6px">⬇️</div>
-      <div>Click any item below to pack it</div>
-      <div style="font-size:11px;color:var(--dim);margin-top:4px">You don't need all ${totalItems} — pick only the ${signalCount} that help solve the problem</div>
-    </div>`:""}
-    ${bagItems.map(i=>itemHTML(i,true,typeMap,state.phase==="done",isTutorial)).join("")}
-  </div>`;
-
-  // Items
-  html+=`<div class="shelf-label">📦 CHOOSE ${signalCount} OF ${totalItems} ITEMS — click to pack, click again to remove</div>
+  // Items FIRST, then backpack (more natural flow)
+  html+=`<div class="shelf-label">📦 PICK ${signalCount} OF ${totalItems} — tap to pack, tap again to remove</div>
   <div class="shelf" id="shelf" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDropShelf(event)">
     ${shelfItems.length===0?'<div class="bp-empty">All items packed!</div>':""}
     ${shelfItems.map(i=>itemHTML(i,false,typeMap,state.phase==="done",isTutorial)).join("")}
+  </div>`;
+
+  // Backpack
+  html+=`<div class="backpack ${over?"overweight":""}" id="backpack" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDropBag(event)">
+    <span class="bp-label">🎒 PACKED (${bagItems.length})</span>
+    <span class="bp-weight ${over?"over":""}">${usedWt} / ${L.capacity} wt</span>
+    ${bagItems.length===0?'<div class="bp-empty">⬆️ Tap items above to pack them</div>':""}
+    ${bagItems.map(i=>itemHTML(i,true,typeMap,state.phase==="done",isTutorial)).join("")}
   </div>`;
 
   // Actions
@@ -158,6 +162,8 @@ function renderLevel(){
       <button class="btn btn-clear" onclick="showHint()" style="color:var(--gold);border-color:var(--gold)">💡 Hint</button>
       <button class="btn btn-go" ${!state.bag.length||over?"disabled":""} onclick="doSubmit()">🤖 Ask the AI →</button>
     </div>`;
+    // Contextual tooltip under button
+    html+=`<div style="text-align:center;font-size:11px;color:var(--dim);margin:-8px 0 12px">The AI will try to solve the problem using <strong>only</strong> what's in your backpack</div>`;
     html+=`<div id="hint-box" style="display:none;margin-bottom:14px"></div>`;
   }
   html+=`<div class="result ${state.phase==="done"?"show":""}" id="result"></div>`;
@@ -170,8 +176,8 @@ function itemHTML(item,inBag,typeMap,locked,isTutorial){
   let cls=inBag?"in-bag":"";if(locked&&typeMap[item.id])cls=typeMap[item.id];if(locked)cls+=" locked";
   let tutTag="";
   if(isTutorial&&!locked){
-    if(item.type==="signal")tutTag=`<div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--green);margin-top:4px">✦ THIS LOOKS RELEVANT</div>`;
-    else if(item.type==="noise")tutTag=`<div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--red);margin-top:4px">✕ PROBABLY NOT USEFUL</div>`;
+    if(item.type==="signal")tutTag=`<div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--green);margin-top:4px">✦ LOOKS USEFUL</div>`;
+    else if(item.type==="noise")tutTag=`<div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--red);margin-top:4px">✕ PROBABLY JUNK</div>`;
   }
   return`<div class="item ${cls}" draggable="${!locked}" ondragstart="onDragStart(event,'${item.id}')" onclick="toggleItem('${item.id}')" style="flex-direction:column;align-items:flex-start;width:100%">
     <div style="display:flex;align-items:center;gap:6px;width:100%">
@@ -182,27 +188,10 @@ function itemHTML(item,inBag,typeMap,locked,isTutorial){
   </div>`;
 }
 
-function getOfflineLevel(idx) {
-  const L = levels[idx];
-  if (!L) return OFFLINE_LEVELS[idx];
-  // Match by tag name, not index (server levels may not have tutorial)
-  const match = OFFLINE_LEVELS.find(ol => ol.tag === L.tag);
-  if (match) return match;
-  // If no tag match, try offset (server has no tutorial, so offset by 1)
-  const hasServerTutorial = levels.some(l => l.tag === "TUTORIAL");
-  if (!hasServerTutorial && OFFLINE_LEVELS[0] && OFFLINE_LEVELS[0].tutorial) {
-    return OFFLINE_LEVELS[idx + 1];
-  }
-  return OFFLINE_LEVELS[idx];
-}
-
 function showHint(){
-  const L=levels[state.level];
-  const offL = getOfflineLevel(state.level);
-  const hint = (L && L.hint) || (offL && offL.hint);
-  if(!hint)return;
-  state.hintUsed=true;
-  const box=$("#hint-box");if(!box)return;
+  const L=levels[state.level];const offL=getOfflineLevel(state.level);
+  const hint=(L&&L.hint)||(offL&&offL.hint);if(!hint)return;
+  state.hintUsed=true;const box=$("#hint-box");if(!box)return;
   box.style.display="block";
   box.innerHTML=`<div class="card" style="border-color:var(--gold)">
     <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.1em;margin-bottom:6px">💡 HINT</div>
@@ -220,7 +209,7 @@ function onDropBag(e){e.preventDefault();e.currentTarget.classList.remove("over"
 function onDropShelf(e){e.preventDefault();e.currentTarget.classList.remove("over");if(dragId&&state.bag.includes(dragId)){state.bag=state.bag.filter(x=>x!==dragId);render();}dragId=null;}
 function toggleItem(id){if(state.phase!=="pick")return;state.bag.includes(id)?state.bag=state.bag.filter(x=>x!==id):state.bag.push(id);render();}
 
-// ── Submit ──
+// ── Submit with correct server index ──
 async function doSubmit(){
   const L=levels[state.level];const wt=state.bag.reduce((s,id)=>s+L.items.find(i=>i.id===id).wt,0);
   if(wt>L.capacity||!state.bag.length)return;
@@ -228,15 +217,11 @@ async function doSubmit(){
   $("#result").innerHTML=`<div class="r-card"><div class="r-head"><span class="r-avatar">🤖</span><span class="r-who">AI COMPANION</span></div><div style="display:flex;gap:5px;padding:8px 0"><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite"></span><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite .2s"></span><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite .4s"></span></div></div>`;
   $("#result").classList.add("show");
   let result;
-  // Tutorial is client-only — always score locally
-  // For other levels, adjust index because server doesn't have tutorial
-  const isTutorialLevel = L.tutorial === true;
-  if (isTutorialLevel) {
-    result = localEvaluate(state.level, state.bag);
+  if(L.tutorial){
+    result=localEvaluate(state.level,state.bag);
   } else {
-    const serverIndex = L.tutorial === true ? state.level : state.level - (levels[0] && levels[0].tutorial ? 1 : 0);
-    try { result = await api.post("/api/submit", {level: serverIndex, bag: state.bag}); }
-    catch(e) { result = localEvaluate(state.level, state.bag); }
+    const serverIdx=state.level-(levels[0]&&levels[0].tutorial?1:0);
+    try{result=await api.post("/api/submit",{level:serverIdx,bag:state.bag})}catch(e){result=localEvaluate(state.level,state.bag)}
   }
   state.lastResult=result;state.scores.push(result.score);state.phase="done";render();
   if(result.score<=10)spawnParticles();
@@ -252,26 +237,34 @@ function fillVerdict(r){
   const L=levels[state.level];const sc=r.score;
   let icon,title;
   if(sc>=90){icon="🏆";title="Perfect Pack!";}else if(sc>=60){icon="✨";title="Good Choices";}else if(sc>=25){icon="⚠️";title="Incomplete";}else{icon="💥";title="BOOM!";}
-  const typeMap = {}; if (r.items) r.items.forEach(it => typeMap[it.id] = it.type);
-  const offL2 = getOfflineLevel(state.level);
-  const verdictItems = L.items.map(item => {
-    const offItem = offL2 && offL2.items ? offL2.items.find(oi => oi.id === item.id) : null;
-    return { ...item, type: typeMap[item.id] || (offItem && offItem.type) || item.type };
-  });
-  const sig = verdictItems.filter(i => state.bag.includes(i.id) && typeMap[i.id] === "signal").length;
-  const totSig = verdictItems.filter(i => typeMap[i.id] === "signal").length;
-  const noi = verdictItems.filter(i => state.bag.includes(i.id) && typeMap[i.id] === "noise").length;
-  const wt = state.bag.reduce((s, id) => s + L.items.find(i => i.id === id).wt, 0);
+  const typeMap={};if(r.items)r.items.forEach(it=>typeMap[it.id]=it.type);
+  const offL2=getOfflineLevel(state.level);
+  const verdictItems=L.items.map(item=>{const oi=offL2&&offL2.items?offL2.items.find(o=>o.id===item.id):null;return{...item,type:typeMap[item.id]||(oi&&oi.type)||item.type};});
+  const sig=verdictItems.filter(i=>state.bag.includes(i.id)&&typeMap[i.id]==="signal").length;
+  const totSig=verdictItems.filter(i=>typeMap[i.id]==="signal").length;
+  const noi=verdictItems.filter(i=>state.bag.includes(i.id)&&typeMap[i.id]==="noise").length;
+  const wt=state.bag.reduce((s,id)=>s+L.items.find(i=>i.id===id).wt,0);
   const isLast=state.level>=levels.length-1;
-  $("#verdict").innerHTML=`<div class="v-card">
-    <div class="v-icon">${icon}</div><div class="v-title">${title}</div>
-    <div class="v-desc">${sc>=70?"Your backpack had the right stuff!":sc>=25?"Close, but missing critical items.":"Noise overloaded the robot. KABOOM! 💥"}</div>
-    <div class="v-stats">
+  const isTutOrL1=state.level<=1;
+
+  // Simplified verdict for tutorial + L1, full for rest
+  let statsHtml="";
+  if(isTutOrL1){
+    statsHtml=`<div class="v-stats"><div class="v-stat"><div class="v-stat-v" style="color:var(--gold)">${sc}</div><div class="v-stat-l">Score</div></div></div>`;
+    if(sc<100) statsHtml+=`<div style="font-size:11px;color:var(--dim);margin-bottom:12px">Tip: pick only what's needed — extra items add noise</div>`;
+  } else {
+    statsHtml=`<div class="v-stats">
       <div class="v-stat"><div class="v-stat-v" style="color:var(--gold)">${sc}</div><div class="v-stat-l">Score</div></div>
       <div class="v-stat"><div class="v-stat-v" style="color:var(--green)">${sig}/${totSig}</div><div class="v-stat-l">Signal</div></div>
       <div class="v-stat"><div class="v-stat-v" style="color:var(--red)">${noi}</div><div class="v-stat-l">Noise</div></div>
       <div class="v-stat"><div class="v-stat-v">${wt}</div><div class="v-stat-l">Weight</div></div>
-    </div>
+    </div>`;
+  }
+
+  $("#verdict").innerHTML=`<div class="v-card">
+    <div class="v-icon">${icon}</div><div class="v-title">${title}</div>
+    <div class="v-desc">${sc>=70?"Your backpack had the right stuff!":sc>=25?"Close, but missing critical items.":"Noise overloaded the robot. KABOOM! 💥"}</div>
+    ${statsHtml}
     <div class="v-lesson">${r.lesson}</div>
     <button class="btn ${isLast?"btn-go":"btn-next"}" onclick="${isLast?"endGame()":"nextLevel()"}">${isLast?"See Final Score →":"Next Level →"}</button>
   </div>`;
@@ -279,28 +272,34 @@ function fillVerdict(r){
 
 function nextLevel(){state.level++;state.bag=[];state.phase="pick";state.lastResult=null;state.hintUsed=false;render();window.scrollTo({top:0,behavior:"smooth"});}
 
-// ── END ──
+// ── End (exclude tutorial from score display) ──
 async function endGame(){
   state.screen="end";
-  const total=state.scores.reduce((a,b)=>a+b,0);const avg=Math.round(total/levels.length);const perf=state.scores.filter(s=>s>=90).length;
+  const gameScores=state.scores.slice(1); // exclude tutorial
+  const total=gameScores.reduce((a,b)=>a+b,0);
+  const avg=gameScores.length?Math.round(total/gameScores.length):0;
+  const perf=gameScores.filter(s=>s>=90).length;
   let rankTitle;if(avg>=90)rankTitle="Context Architect";else if(avg>=65)rankTitle="Signal Hunter";else if(avg>=35)rankTitle="Noise Survivor";else rankTitle="Hallucination Machine";
   if(player){await api.post("/api/save",{playerId:player.playerId,score:total,perfect:perf,rankTitle}).catch(()=>{});}
   render();window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function renderEnd(){
-  const total=state.scores.reduce((a,b)=>a+b,0);const avg=Math.round(total/levels.length);const perf=state.scores.filter(s=>s>=90).length;
+  const gameScores=state.scores.slice(1);
+  const total=gameScores.reduce((a,b)=>a+b,0);
+  const avg=gameScores.length?Math.round(total/gameScores.length):0;
+  const perf=gameScores.filter(s=>s>=90).length;
   let rank,rc;
   if(avg>=90){rank="🏆 Context Architect";rc="var(--gold)";}else if(avg>=65){rank="✨ Signal Hunter";rc="var(--green)";}else if(avg>=35){rank="⚠️ Noise Survivor";rc="var(--orange)";}else{rank="💀 Hallucination Machine";rc="var(--red)";}
   game.innerHTML=`<div class="screen show">
     <div class="robot-wrap" style="margin:0 auto 8px"><div class="robot ${avg>=60?'celebrate':'explode'}"></div></div>
     <div class="hdr"><h1>Quest Complete</h1></div>
     <p style="font-size:15px;color:${rc};font-weight:700">${rank}</p>
-    <p style="font-size:13px;color:var(--dim)">${player?player.name:"Robot"} scored ${total} / ${levels.length*100}</p>
+    <p style="font-size:13px;color:var(--dim)">${player?player.name:"Robot"} scored ${total} / ${gameScores.length*100}</p>
     <div class="final-grid">
       <div class="f-cell"><div class="f-val" style="color:var(--gold)">${avg}</div><div class="f-label">AVG SCORE</div></div>
       <div class="f-cell"><div class="f-val" style="color:var(--green)">${perf}</div><div class="f-label">PERFECT</div></div>
-      <div class="f-cell"><div class="f-val">${levels.length}</div><div class="f-label">LEVELS</div></div>
+      <div class="f-cell"><div class="f-val">${gameScores.length}</div><div class="f-label">LEVELS</div></div>
     </div>
     <div class="rules" style="margin-top:20px">
       <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--purple);letter-spacing:.2em;margin-bottom:10px">WHAT YOU LEARNED</div>
@@ -319,11 +318,11 @@ function renderEnd(){
   renderPips();
 }
 
-// ── LEADERBOARD ──
+// ── Leaderboard ──
 async function renderLeaderboard(){
   game.innerHTML=`<div class="screen show"><div style="font-size:48px;margin-bottom:4px">🏆</div><div class="hdr"><h1>Leaderboard</h1></div><div id="lb-content"><div class="bp-empty">Loading...</div></div><div id="lb-stats" style="margin-top:16px"></div><button class="btn btn-clear" onclick="state.screen=state._returnTo||'intro';render()" style="max-width:200px;margin:16px auto 0;display:block">← Back</button></div>`;
   let entries=[],stats={totalPlayers:0,totalGames:0,avgScore:0,topScore:0};
-  try{[entries,stats]=await Promise.all([api.get("/api/leaderboard"),api.get("/api/stats")])}catch(e){const lbEl=$("#lb-content");if(lbEl)lbEl.innerHTML=`<div class="bp-empty">Leaderboard needs Turso database.<br>Play the game first — scores are tracked locally!</div>`;return;}
+  try{[entries,stats]=await Promise.all([api.get("/api/leaderboard"),api.get("/api/stats")])}catch(e){const lbEl=$("#lb-content");if(lbEl)lbEl.innerHTML=`<div class="bp-empty">Leaderboard unavailable offline.<br>Play the game — scores save when online!</div>`;return;}
   const lbEl=$("#lb-content");
   if(!entries.length){lbEl.innerHTML=`<div class="bp-empty">No quests completed yet. Be the first!</div>`}else{
     lbEl.innerHTML=`<div style="max-width:440px;margin:0 auto">${entries.map(e=>{const medals=["👑","🥈","🥉"];const medal=e.rank<=3?medals[e.rank-1]:`<span style="color:var(--dim)">#${e.rank}</span>`;const isMe=player&&e.name===player.name;return`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${isMe?"var(--gold-g)":"var(--panel)"};border:1px solid ${isMe?"var(--gold)":"var(--border)"};border-radius:10px;margin-bottom:6px"><span style="font-size:18px;width:28px;text-align:center">${medal}</span><span style="flex:1;font-weight:600;font-size:13px;${isMe?"color:var(--gold)":""}">${e.name}</span><span style="font-family:'Silkscreen',cursive;font-size:12px;color:var(--gold)">${e.score}</span><span style="font-size:10px;color:var(--dim);min-width:50px;text-align:right">${e.perfect}⭐</span></div>`}).join("")}</div>`}
@@ -333,124 +332,124 @@ async function renderLeaderboard(){
 function spawnParticles(){const el=$("#particles");if(!el)return;const colors=["#ff5c5c","#ffd700","#ff8c00","#fff","#ff4444"];el.innerHTML="";for(let i=0;i<16;i++){const a=Math.random()*360,d=30+Math.random()*40;const x=Math.cos(a*Math.PI/180)*d,y=Math.sin(a*Math.PI/180)*d;const c=colors[Math.floor(Math.random()*colors.length)];const s=3+Math.random()*5;const p=document.createElement("div");p.style.cssText=`position:absolute;width:${s}px;height:${s}px;border-radius:50%;background:${c}`;el.appendChild(p);p.animate([{transform:"translate(0,0) scale(1)",opacity:1},{transform:`translate(${x}px,${y}px) scale(0.3)`,opacity:0}],{duration:600+Math.random()*400,easing:"ease-out",fill:"forwards"});}}
 
 // ═══════════════════════════════════════════════════
-// OFFLINE LEVELS — with briefings, hints, tutorial
+// OFFLINE LEVELS
 // ═══════════════════════════════════════════════════
 const OFFLINE_LEVELS = [
   {tag:"TUTORIAL",title:"Robot Boot Camp",tutorial:true,
-    briefing:"Your robot companion needs to connect to WiFi, but it doesn't know the password. You have 3 data items. <strong>Some contain the info needed, some don't.</strong><br><br>Read each item's description carefully. Pick only the ones that help solve the problem. Items marked <span style='color:var(--green)'>✦ RELEVANT</span> are signal. Items marked <span style='color:var(--red)'>✕ NOT USEFUL</span> are noise.<br><br><em>This is a tutorial — the annotations will disappear in real levels!</em>",
-    goal:"Help the robot find the WiFi password",heroEmoji:"🤖",capacity:100,
-    hint:"The WiFi password is what you need. Which items contain it or help find it?",
+    briefing:"Your robot needs WiFi. You have 3 data items — some help, some don't.<br><br>Items marked <span style='color:var(--green)'>✦ LOOKS USEFUL</span> are likely what you need. Items marked <span style='color:var(--red)'>✕ PROBABLY JUNK</span> are noise.<br><br><em>These hints disappear in real levels!</em>",
+    goal:"Find the WiFi password",heroEmoji:"🤖",capacity:100,
+    hint:"Which item literally contains a password?",
     items:[
-      {id:"a",emoji:"📋",name:"WiFi Config File",wt:30,type:"signal",tip:"Contains SSID: 'RobotNet' and password: 'b33p-b00p-2024'. This is exactly what you need."},
-      {id:"b",emoji:"🍕",name:"Pizza Menu",wt:40,type:"noise",tip:"Today's special: Margherita. Delicious but won't help connect to WiFi."},
-      {id:"c",emoji:"📡",name:"Router Location",wt:25,type:"signal",tip:"Router is in Room 3B, signal strength is best within 10 meters. Helps confirm the right network."},
+      {id:"a",emoji:"📋",name:"WiFi Config File",wt:30,type:"signal",tip:"Contains SSID: 'RobotNet' and password: 'b33p-b00p-2024'."},
+      {id:"b",emoji:"🍕",name:"Pizza Menu",wt:40,type:"noise",tip:"Today's special: Margherita. Delicious. Useless."},
+      {id:"c",emoji:"📡",name:"Router Location",wt:25,type:"signal",tip:"Router is in Room 3B — helps confirm the right network."},
     ],_r:{
-      perfect:{keys:["a","c"],text:'<span class="ok">Connected!</span> Password from config: <span class="ok">b33p-b00p-2024</span>. Router in Room 3B — right network confirmed.\n\n<span class="ok">WiFi connected. Signal: excellent.</span>',score:100},
-      good:{keys:["a"],text:'<span class="ok">Password found: b33p-b00p-2024.</span> Connected!\n\n<span class="maybe">Didn\'t verify router location. Could be a spoofed network.</span>',score:75},
-      partial:{keys:["c"],text:'Router is in Room 3B, but <span class="maybe">without the password, I can\'t connect.</span>',score:25},
-      hall:{text:'<span class="hall">Pizza menu says "Margherita" — maybe that\'s the password?</span>\n\n<span class="hall">Trying "margherita2024"... failed.</span>',score:5},
-      empty:{text:'<span class="hall">Guessing: "password123"... nope. "admin"... nope.</span>',score:0},
-    },lesson:'<strong>Tutorial complete!</strong> You just did context engineering. The WiFi config (30 wt) had the answer. The pizza menu (40 wt) was heavier AND useless. In real AI systems, choosing the right data for the context window works exactly like this.'},
+      perfect:{keys:["a","c"],text:'<span class="ok">Connected!</span> Password: <span class="ok">b33p-b00p-2024</span>. Router in Room 3B confirmed.\n\n<span class="ok">WiFi connected. Signal: excellent.</span>',score:100},
+      good:{keys:["a"],text:'<span class="ok">Password found: b33p-b00p-2024.</span> Connected!\n\n<span class="maybe">Didn\'t verify router — could be a spoofed network.</span>',score:75},
+      partial:{keys:["c"],text:'Router is in Room 3B, but <span class="maybe">without the password, can\'t connect.</span>',score:25},
+      hall:{text:'<span class="hall">"Margherita" as password? Trying... failed.</span>',score:5},
+      empty:{text:'<span class="hall">Guessing "password123"... nope.</span>',score:0},
+    },lesson:'<strong>Tutorial done!</strong> The WiFi config (30 wt) had the answer. The pizza menu (40 wt) was heavier AND useless. This is context engineering — choosing the right data matters more than having lots of data.'},
 
   {tag:"LEVEL 1 — THE FIREWALL",title:"The Encrypted Gateway",
-    briefing:'Your robot reaches a locked firewall. The terminal shows: <code style="background:var(--surface);padding:2px 6px;border-radius:4px">ACCESS DENIED — AES-256 encrypted. Provide valid credentials.</code><br><br>You have 6 data items. Some contain encryption keys and protocol info. Others are random tech junk. <strong>Find items that relate to the encryption — the key, the protocol, and how to use them together.</strong>',
+    briefing:'Your robot hits a firewall: <code style="background:var(--surface);padding:2px 6px;border-radius:4px">ACCESS DENIED — AES-256</code><br><br>Some items have encryption data. Others are random tech junk.',
     goal:"Bypass the encrypted firewall",heroEmoji:"🤖",capacity:150,
-    hint:"You need: the key itself, the protocol it uses, and the handshake sequence. Ignore items that add power or entertainment — this is a data problem, not a computing problem.",
+    hint:"You need: the key, the protocol, and the handshake sequence. Power and entertainment don't help.",
     items:[
-      {id:"a",emoji:"🔑",name:"Encryption Key",wt:40,type:"signal",tip:"An AES-256 key fragment matching the firewall's cipher suite. Part of what you need to decrypt."},
-      {id:"b",emoji:"🎮",name:"Gaming Module",wt:50,type:"noise",tip:"Plays retro arcade games. Great for downtime, but encryption doesn't care about your high score."},
-      {id:"c",emoji:"📡",name:"Packet Capture",wt:35,type:"signal",tip:"A captured network handshake showing the exact encryption protocol the firewall uses."},
-      {id:"d",emoji:"🔋",name:"Extra Battery",wt:60,type:"noise",tip:"Extends battery by 4 hours. More power won't crack encryption."},
-      {id:"e",emoji:"📋",name:"Protocol Docs",wt:40,type:"signal",tip:"Handshake sequence documentation: challenge → response → verify. Without this, you might send the key wrong."},
-      {id:"f",emoji:"🖨️",name:"Printer Driver",wt:55,type:"noise",tip:"Driver v3.2.1 for a LaserJet 4000. No printer here. Completely irrelevant."},
+      {id:"a",emoji:"🔑",name:"Encryption Key",wt:40,type:"signal",tip:"AES-256 key fragment matching the firewall's cipher."},
+      {id:"b",emoji:"🎮",name:"Gaming Module",wt:50,type:"noise",tip:"Retro arcade games. Fun, but encryption doesn't care."},
+      {id:"c",emoji:"📡",name:"Packet Capture",wt:35,type:"signal",tip:"Captured handshake showing the encryption protocol used."},
+      {id:"d",emoji:"🔋",name:"Extra Battery",wt:60,type:"noise",tip:"More power. But this is a data problem, not power."},
+      {id:"e",emoji:"📋",name:"Protocol Docs",wt:40,type:"signal",tip:"Handshake docs: challenge → response → verify sequence."},
+      {id:"f",emoji:"🖨️",name:"Printer Driver",wt:55,type:"noise",tip:"LaserJet driver v3.2.1. No printer here."},
     ],_r:{
-      perfect:{keys:["a","c","e"],text:'<span class="ok">Firewall bypassed!</span> Matched key to handshake, followed challenge→response→verify.\n\n<span class="ok">Access granted. Gateway opens.</span>',score:100},
-      good:{keys:["a","c"],text:'<span class="ok">Key matches the captured protocol.</span>\n\n<span class="maybe">Not sure about handshake sequence. Might trigger alarm.</span>',score:65},
-      partial:{keys:["c"],text:'I can see encrypted packets but <span class="maybe">without the key, can only observe.</span>',score:30},
-      hall:{text:'<span class="hall">Extra battery + gaming module = brute force!</span>\n\n<span class="hall">Estimated: 4.7 billion years.</span>',score:5},
-      empty:{text:'<span class="hall">Have you tried turning it off and on again?</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Battery (60 wt) + gaming module (50 wt) = useless for decryption. Protocol docs (40 wt) mattered more than extra power. Context engineering = right data for the right problem.'},
+      perfect:{keys:["a","c","e"],text:'<span class="ok">Firewall bypassed!</span> Key + handshake + protocol sequence.\n\n<span class="ok">Access granted.</span>',score:100},
+      good:{keys:["a","c"],text:'<span class="ok">Key matches protocol.</span>\n\n<span class="maybe">Missing handshake sequence — might trigger alarm.</span>',score:65},
+      partial:{keys:["c"],text:'Can see encrypted packets but <span class="maybe">without the key, can only watch.</span>',score:30},
+      hall:{text:'<span class="hall">Battery + gaming module = brute force!</span>\n\n<span class="hall">ETA: 4.7 billion years.</span>',score:5},
+      empty:{text:'<span class="hall">Have you tried rebooting?</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Battery (60 wt) + gaming (50 wt) = useless for decryption. Protocol docs (40 wt) mattered more than power. Right data > more data.'},
 
   {tag:"LEVEL 2 — THE DATA STREAM",title:"The Corrupted Pipeline",
-    briefing:'Data packets arriving corrupted. Monitoring shows: <code style="background:var(--surface);padding:2px 6px;border-radius:4px">ERROR RATE: 73% — PAYLOAD INTEGRITY FAILED</code><br><br>Something upstream is injecting bad data. You need: <strong>what</strong> the corruption is, <strong>where</strong> it comes from, and <strong>how</strong> to fix it.',
-    goal:"Find the corruption source and fix the pipeline",heroEmoji:"🤖",capacity:180,
-    hint:"You need: a corrupted sample (identify the attack), an error reference (decode the error), and a network map (find the source). History docs and cables won't help.",
+    briefing:'Data arriving corrupted: <code style="background:var(--surface);padding:2px 6px;border-radius:4px">ERROR RATE: 73%</code><br><br>Something upstream is injecting bad data. Find what, where, and how to fix it.',
+    goal:"Find the corruption source and fix it",heroEmoji:"🤖",capacity:180,
+    hint:"Need: a sample (identify attack), error reference (decode it), network map (find source). History docs and cables won't help.",
     items:[
-      {id:"a",emoji:"💾",name:"Corrupted Packet",wt:30,type:"signal",tip:"Captured malformed packet. Headers show SQL injection pattern — someone injecting malicious payloads upstream."},
-      {id:"b",emoji:"📊",name:"Error Code Table",wt:45,type:"signal",tip:"Error 0x7F = unauthorized write from external source. The corruption is from outside your system."},
-      {id:"c",emoji:"🗺️",name:"Network Topology",wt:50,type:"signal",tip:"Map of all nodes. Shows a rogue API gateway at node 7.4.2 that shouldn't exist."},
-      {id:"d",emoji:"📸",name:"Server Selfie",wt:40,type:"partial",tip:"Screenshot of server rack. LED on node 7 is amber. Confirms something wrong but doesn't explain what."},
-      {id:"e",emoji:"📚",name:"Architecture History",wt:80,type:"noise",tip:"200-page doc about why we migrated from monolith in 2019. Fascinating. Zero diagnostic value."},
-      {id:"f",emoji:"🔌",name:"USB Cable",wt:35,type:"noise",tip:"USB Type-C cable. The pipeline is virtual software, not hardware. Connects to nothing useful."},
+      {id:"a",emoji:"💾",name:"Corrupted Packet",wt:30,type:"signal",tip:"Malformed payload with SQL injection pattern in headers."},
+      {id:"b",emoji:"📊",name:"Error Code Table",wt:45,type:"signal",tip:"Error 0x7F = unauthorized write from external source."},
+      {id:"c",emoji:"🗺️",name:"Network Topology",wt:50,type:"signal",tip:"Shows a rogue API gateway at node 7.4.2."},
+      {id:"d",emoji:"📸",name:"Server Selfie",wt:40,type:"partial",tip:"LED on node 7 is amber. Confirms issue, doesn't explain it."},
+      {id:"e",emoji:"📚",name:"Architecture History",wt:80,type:"noise",tip:"200-page migration doc from 2019. Zero diagnostic value."},
+      {id:"f",emoji:"🔌",name:"USB Cable",wt:35,type:"noise",tip:"Type-C. The pipeline is software, not hardware."},
     ],_r:{
-      perfect:{keys:["a","b","c"],text:'<span class="ok">Source identified.</span> SQL injection + 0x7F = <span class="ok">rogue gateway at node 7.4.2</span>.\n\n<span class="ok">Fix: isolate node, revoke API key, flush pipeline.</span>',score:100},
-      good:{keys:["a","b"],text:'<span class="ok">SQL injection + unauthorized write.</span> Malicious injection.\n\n<span class="maybe">From where? Need network topology.</span>',score:65},
-      partial:{keys:["a","d"],text:'Corrupted packets. Amber LED on node 7.\n\n<span class="maybe">Can\'t confirm without error codes or network map.</span>',score:35},
-      hall:{text:'<span class="hall">Architecture doc says pipeline was fine in 2019. Revert to monolith?</span>',score:5},
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Found it.</span> SQL injection + 0x7F = <span class="ok">rogue gateway at node 7.4.2</span>.\n\n<span class="ok">Fix: isolate node, revoke key, flush pipeline.</span>',score:100},
+      good:{keys:["a","b"],text:'<span class="ok">SQL injection + unauthorized write.</span>\n\n<span class="maybe">From where? Need network map.</span>',score:65},
+      partial:{keys:["a","d"],text:'Corrupted packets + amber LED on node 7.\n\n<span class="maybe">Can\'t pinpoint without error codes or map.</span>',score:35},
+      hall:{text:'<span class="hall">Architecture doc says it worked in 2019. Revert to monolith?</span>',score:5},
       empty:{text:'<span class="hall">Clear the cache?</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Architecture history (80 wt!) = almost half your budget, zero diagnostic value. Packet (30) + errors (45) + topology (50) = 125 wt. Heavy docs ≠ useful data.'},
+    },lesson:'<strong>Lesson:</strong> Architecture history (80 wt!) = almost half your budget, zero value. Packet (30) + errors (45) + map (50) = 125 wt, complete fix. Heavy ≠ valuable.'},
 
   {tag:"LEVEL 3 — THE BREACH",title:"The Stolen API Keys",
-    briefing:'⚠️ <strong>SECURITY ALERT</strong> — Production API keys exfiltrated last night between 2-3 AM. Keys grant full access to customer data.<br><br>Identify <strong>who</strong> did it, <strong>how</strong>, and <strong>why</strong> (motive). 7 data items available — some are evidence, some are noise from the same time period.',
-    goal:"Identify who stole the API keys and prove it",heroEmoji:"🤖",capacity:200,
-    hint:"Build an evidence chain: access logs = WHO, git history = HOW, vault audit = METHOD, financial records = MOTIVE. Coffee and music aren't evidence.",
+    briefing:'⚠️ <strong>SECURITY ALERT</strong> — API keys exfiltrated between 2-3 AM.<br><br>Find WHO, HOW, and WHY. Some items are evidence, some are noise from the same time.',
+    goal:"Identify the thief and prove it",heroEmoji:"🤖",capacity:200,
+    hint:"Evidence chain: access logs = WHO, git = HOW, vault audit = METHOD, crypto trace = MOTIVE. Coffee and music aren't evidence.",
     items:[
-      {id:"a",emoji:"📋",name:"Access Logs",wt:35,type:"signal",tip:"Only dev-bot-9 accessed the secret vault between 2-3 AM. No other bot active in that system."},
-      {id:"b",emoji:"🔍",name:"Git Blame",wt:30,type:"signal",tip:"dev-bot-9 committed a suspicious base64 string to a test file at 2:47 AM. It decodes to an API key."},
-      {id:"c",emoji:"🔐",name:"Vault Audit Trail",wt:40,type:"signal",tip:"Secret read via automated API call, not console. Scripted — deliberate, automated exfiltration."},
-      {id:"d",emoji:"📊",name:"Team Roster",wt:50,type:"partial",tip:"12 bots have vault access. 4 were running jobs that night. Narrows suspects but doesn't identify the thief."},
-      {id:"e",emoji:"☕",name:"Coffee Machine Logs",wt:45,type:"noise",tip:"7 espressos between midnight and 3 AM. Robots don't drink coffee — human night shift data."},
-      {id:"f",emoji:"🎵",name:"Office Playlist",wt:40,type:"noise",tip:"Lo-fi playlist streaming 1-4 AM. Vibes were immaculate. Not evidence of anything."},
-      {id:"g",emoji:"💰",name:"Crypto Wallet Trace",wt:40,type:"signal",tip:"dev-bot-9 transferred 0.5 BTC to external wallet at 3:12 AM — right after exfiltration. Payment."},
+      {id:"a",emoji:"📋",name:"Access Logs",wt:35,type:"signal",tip:"Only dev-bot-9 accessed the vault between 2-3 AM."},
+      {id:"b",emoji:"🔍",name:"Git Blame",wt:30,type:"signal",tip:"dev-bot-9 committed a base64-encoded API key at 2:47 AM."},
+      {id:"c",emoji:"🔐",name:"Vault Audit Trail",wt:40,type:"signal",tip:"Key read via automated API — scripted exfiltration."},
+      {id:"d",emoji:"📊",name:"Team Roster",wt:50,type:"partial",tip:"12 bots with access, 4 active that night. Narrows it down."},
+      {id:"e",emoji:"☕",name:"Coffee Machine Logs",wt:45,type:"noise",tip:"7 espressos ordered. Robots don't drink coffee."},
+      {id:"f",emoji:"🎵",name:"Office Playlist",wt:40,type:"noise",tip:"Lo-fi beats streaming 1-4 AM. Great vibes, zero evidence."},
+      {id:"g",emoji:"💰",name:"Crypto Wallet Trace",wt:40,type:"signal",tip:"dev-bot-9 sent 0.5 BTC externally at 3:12 AM. Payment."},
     ],_r:{
-      perfect:{keys:["a","b","c","g"],text:'<span class="ok">dev-bot-9 stole the keys.</span>\n\n• <span class="ok">Only vault access at 2-3AM</span>\n• <span class="ok">Encoded keys in git</span>\n• <span class="ok">Automated exfiltration</span>\n• <span class="ok">0.5 BTC = sold them</span>',score:100},
-      good:{keys:["a","b","c"],text:'Strong case: <span class="ok">dev-bot-9</span>.\n\n<span class="maybe">Motive? Need financial trail.</span>',score:70},
-      partial:{keys:["a","d"],text:'dev-bot-9 accessed vault. 4 bots active.\n\n<span class="maybe">Circumstantial. Need forensics.</span>',score:35},
-      hall:{text:'<span class="hall">7 espressos = all-nighter! Cross-reference playlist!</span>',score:5},
-      empty:{text:'<span class="hall">It\'s always the intern.</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Coffee + playlist = 85 wt of noise from the same time period. Crypto trace (40 wt) proved the motive. In incident response, follow the money.'},
+      perfect:{keys:["a","b","c","g"],text:'<span class="ok">dev-bot-9 stole the keys.</span>\n\n• <span class="ok">Only vault access at 2-3AM</span>\n• <span class="ok">Encoded keys in git</span>\n• <span class="ok">Automated exfiltration</span>\n• <span class="ok">0.5 BTC payment</span>',score:100},
+      good:{keys:["a","b","c"],text:'Strong case: <span class="ok">dev-bot-9</span>.\n\n<span class="maybe">But what\'s the motive? Need financial trail.</span>',score:70},
+      partial:{keys:["a","d"],text:'dev-bot-9 accessed vault. 4 bots active.\n\n<span class="maybe">Circumstantial without forensics.</span>',score:35},
+      hall:{text:'<span class="hall">7 espressos = someone pulled an all-nighter!</span>',score:5},
+      empty:{text:'<span class="hall">Blame the intern.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Coffee + playlist = 85 wt, zero evidence. Crypto trace (40 wt) proved the motive. Follow the money.'},
 
   {tag:"LEVEL 4 — THE CLUSTER",title:"The CrashLooping Pod",
-    briefing:'🚨 <strong>PAGERDUTY</strong> — 3 AM. order-service in CrashLoopBackOff. Users getting 503s.<br><br><code style="background:var(--surface);padding:2px 6px;border-radius:4px">order-service-84b9b6956-r8gpj: CrashLoopBackOff (3 restarts)</code><br><br>6 data sources. You need: <strong>what\'s failing</strong>, <strong>why</strong>, and <strong>what changed</strong>.',
-    goal:"Find root cause and provide the exact fix",heroEmoji:"🤖",capacity:200,
-    hint:"Three questions: WHAT (pod logs = error), WHY (deployment YAML = misconfiguration), WHAT CHANGED (changelog = when it broke). Dashboards and runbooks give info you already have.",
+    briefing:'🚨 3 AM — pod in CrashLoopBackOff, users getting 503s.<br><br><code style="background:var(--surface);padding:2px 6px;border-radius:4px">order-service: CrashLoopBackOff (3 restarts)</code><br><br>Find WHAT failed, WHY, and WHAT CHANGED.',
+    goal:"Find root cause + exact fix command",heroEmoji:"🤖",capacity:200,
+    hint:"WHAT = pod logs, WHY = deployment YAML, WHAT CHANGED = changelog. Dashboards show resources are fine. Runbooks tell you what you already know.",
     items:[
-      {id:"a",emoji:"📋",name:"Pod Logs",wt:35,type:"signal",tip:"'ERROR: failed to read /app/config/db-credentials.json: no such file or directory' — repeated on every restart."},
-      {id:"b",emoji:"📄",name:"Deployment YAML",wt:45,type:"signal",tip:"volumeMount: /etc/secrets, but app reads from /app/config. Secret mounted in wrong place."},
-      {id:"c",emoji:"📝",name:"Deploy Changelog",wt:50,type:"signal",tip:"v2.4.1 (11 PM): 'Changed config path from /etc/secrets to /app/config.' YAML wasn't updated."},
-      {id:"d",emoji:"📈",name:"Grafana Dashboard",wt:60,type:"noise",tip:"CPU 12%. Memory 340/512MB. Network nominal. All resources normal — not a resource problem."},
-      {id:"e",emoji:"📖",name:"Runbook (generic)",wt:55,type:"noise",tip:"Step 1: Check pod. Step 2: Check logs. You already did that. 55 wt for nothing new."},
-      {id:"f",emoji:"🧰",name:"kubectl Events",wt:40,type:"partial",tip:"Pulled image OK. Started container. Warning: Liveness probe failed. Confirms crash, not why."},
+      {id:"a",emoji:"📋",name:"Pod Logs",wt:35,type:"signal",tip:"ERROR: /app/config/db-credentials.json — no such file. Repeated."},
+      {id:"b",emoji:"📄",name:"Deployment YAML",wt:45,type:"signal",tip:"Secret mounted at /etc/secrets — but app reads /app/config."},
+      {id:"c",emoji:"📝",name:"Deploy Changelog",wt:50,type:"signal",tip:"v2.4.1: changed app config path to /app/config. YAML not updated."},
+      {id:"d",emoji:"📈",name:"Grafana Dashboard",wt:60,type:"noise",tip:"CPU 12%, Memory 340/512MB. All fine. Not a resource problem."},
+      {id:"e",emoji:"📖",name:"Runbook (generic)",wt:55,type:"noise",tip:"Step 1: Check pod. Step 2: Check logs. You already did that."},
+      {id:"f",emoji:"🧰",name:"kubectl Events",wt:40,type:"partial",tip:"Liveness probe failed. Confirms crash but not cause."},
     ],_r:{
-      perfect:{keys:["a","b","c"],text:'<span class="ok">Root cause: mount path mismatch after v2.4.1.</span>\n\nApp reads /app/config, secret at /etc/secrets.\n\n<span class="ok">Fix: kubectl patch deployment — update volumeMount to /app/config</span>',score:100},
-      good:{keys:["a","b"],text:'<span class="ok">Mount path mismatch.</span> App wants /app/config, secret at /etc/secrets.\n\n<span class="maybe">What triggered this? Recent deploy?</span>',score:65},
-      partial:{keys:["a","f"],text:'Can\'t read config. Liveness failing.\n\n<span class="maybe">WHAT fails — yes. WHY — need deployment spec.</span>',score:35},
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Mount path mismatch after v2.4.1.</span>\n\nApp reads /app/config, secret at /etc/secrets.\n\n<span class="ok">Fix: kubectl patch deployment — update volumeMount to /app/config</span>',score:100},
+      good:{keys:["a","b"],text:'<span class="ok">Mount mismatch found.</span>\n\n<span class="maybe">What triggered this? Recent deploy?</span>',score:65},
+      partial:{keys:["a","f"],text:'Config missing. Liveness failing.\n\n<span class="maybe">WHAT = yes. WHY = need deployment spec.</span>',score:35},
       hall:{text:'<span class="hall">Memory 340/512MB — increase to 2GB! Also try restarting.</span>',score:5},
-      empty:{text:'<span class="hall">kubectl delete pod. Usually works.</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> Grafana (60) + runbook (55) = 115 wt noise. Resources were fine — problem was config. Changelog (50 wt) completed the chain. Logs + spec + changelog > dashboards + runbooks.'},
+      empty:{text:'<span class="hall">kubectl delete pod.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> Grafana (60) + runbook (55) = 115 wt noise. Resources were fine. Changelog (50 wt) completed the chain. Logs + spec + changelog > dashboards + runbooks.'},
 
   {tag:"LEVEL 5 — THE MAINFRAME",title:"The Final Authentication",
-    briefing:'The mainframe screen flashes:<br><br><code style="background:var(--surface);padding:6px 12px;border-radius:4px;display:block;margin:8px 0;color:var(--red)">⚠ ENTER ROOT PASSWORD<br>WARNING: 1 attempt remaining. Wrong password = FULL SYSTEM WIPE.</code><br><br>You must <strong>deduce</strong> the password from available data. 7 items, but most are red herrings.',
-    goal:"Deduce the root password (one chance only)",heroEmoji:"🤖",capacity:180,
-    hint:"Logic puzzle, not brute-force. Need: PASSWORD POLICY (how generated), SOURCE DATA (what value), ENCODING METHOD (how transformed). Weapons and thick manuals are distractions.",
+    briefing:'<code style="background:var(--surface);padding:6px 12px;border-radius:4px;display:block;margin:8px 0;color:var(--red)">⚠ ENTER ROOT PASSWORD — 1 attempt. Wrong = FULL WIPE.</code><br><br>Deduce the password from data. No guessing.',
+    goal:"Deduce the root password",heroEmoji:"🤖",capacity:180,
+    hint:"Logic puzzle, not brute-force. Need: how passwords are GENERATED, the SOURCE value, and how it's ENCODED.",
     items:[
-      {id:"a",emoji:"🧩",name:"Password Policy",wt:25,type:"signal",tip:"Internal policy: 'All root passwords are generated from the server's first boot timestamp.'"},
-      {id:"b",emoji:"⏱️",name:"Boot Log",wt:30,type:"signal",tip:"First boot: 2024-03-14T15:09:26Z. That's Pi Day (3/14), at 15:09:26."},
-      {id:"c",emoji:"📖",name:"Encoding Manual",wt:40,type:"signal",tip:"'Timestamps → Unix epoch → hexadecimal. First 8 chars of hex string = password.'"},
-      {id:"d",emoji:"⚡",name:"Overclocked CPU",wt:65,type:"noise",tip:"Tries billions of passwords/second. But ONE wrong guess = full wipe. Brute force is suicide."},
-      {id:"e",emoji:"🛡️",name:"Firewall Bypass",wt:55,type:"noise",tip:"Bypass tools for the firewall. But you're already past it — the firewall is behind you."},
-      {id:"f",emoji:"📚",name:"Sysadmin Handbook",wt:90,type:"noise",tip:"800-page manual covering every OS. Might have a clue somewhere. At 90 wt = almost entire budget. Not worth it."},
-      {id:"g",emoji:"💬",name:"Slack Message",wt:20,type:"partial",tip:"Retired admin: 'The password has something to do with pi and time... that's all I remember.'"},
+      {id:"a",emoji:"🧩",name:"Password Policy",wt:25,type:"signal",tip:"Passwords generated from server's first boot timestamp."},
+      {id:"b",emoji:"⏱️",name:"Boot Log",wt:30,type:"signal",tip:"First boot: 2024-03-14T15:09:26Z. Pi Day, 15:09:26."},
+      {id:"c",emoji:"📖",name:"Encoding Manual",wt:40,type:"signal",tip:"Timestamp → Unix epoch → hex. First 8 chars = password."},
+      {id:"d",emoji:"⚡",name:"Overclocked CPU",wt:65,type:"noise",tip:"Brute-force speed. But ONE wrong guess = full wipe."},
+      {id:"e",emoji:"🛡️",name:"Firewall Bypass",wt:55,type:"noise",tip:"Bypass tools. You're already past the firewall."},
+      {id:"f",emoji:"📚",name:"Sysadmin Handbook",wt:90,type:"noise",tip:"800 pages. At 90 wt that's half your budget for maybe a clue."},
+      {id:"g",emoji:"💬",name:"Slack Message",wt:20,type:"partial",tip:"Retired admin: 'something about pi and time...'"},
     ],_r:{
-      perfect:{keys:["a","b","c"],text:'<span class="ok">Password cracked: 65e0a3b2</span>\n\n• <span class="ok">Generated from boot timestamp</span>\n• <span class="ok">Boot: 2024-03-14T15:09:26Z (Pi Day!)</span>\n• <span class="ok">Timestamp → epoch → hex → first 8 chars</span>\n\n<span class="ok">Mainframe unlocked.</span>',score:100},
-      good:{keys:["a","b"],text:'From boot timestamp: <span class="ok">Pi Day 2024</span>.\n\n<span class="maybe">How encoded? Hex? Base64? One wrong guess wipes everything.</span>',score:70},
-      partial:{keys:["a","g"],text:'From timestamp. Slack says "about pi."\n\n<span class="maybe">"pi314"? "piday2024"? Guessing without boot log.</span>',score:40},
-      hall:{text:'<span class="hall">Overclocked CPU = brute-force in 3 hours!</span>\n\n<span class="hall">Starting with "password1"... wait, one wrong attempt wipes everything? Oops.</span>',score:5},
-      empty:{text:'<span class="hall">Try "root"? One attempt remaining... maybe not.</span>',score:0},
-    },lesson:'<strong>Lesson:</strong> CPU (65) + Firewall (55) + Handbook (90) = 210 wt. Over budget AND useless — this was a logic puzzle. Policy (25) + Boot (30) + Encoding (40) = 95 wt, perfect answer. The best context is small, specific, and directly relevant.'},
+      perfect:{keys:["a","b","c"],text:'<span class="ok">Password: 65e0a3b2</span>\n\n• <span class="ok">From boot timestamp</span>\n• <span class="ok">Pi Day: 2024-03-14T15:09:26Z</span>\n• <span class="ok">Epoch → hex → first 8 chars</span>\n\n<span class="ok">Mainframe unlocked.</span>',score:100},
+      good:{keys:["a","b"],text:'From boot: <span class="ok">Pi Day 2024</span>.\n\n<span class="maybe">How encoded? One wrong guess wipes everything.</span>',score:70},
+      partial:{keys:["a","g"],text:'From timestamp. Slack says "pi and time."\n\n<span class="maybe">"pi314"? Guessing is dangerous here.</span>',score:40},
+      hall:{text:'<span class="hall">Brute-force! Starting with "password1"...</span>\n\n<span class="hall">Wait, one wrong attempt = wipe? Oops.</span>',score:5},
+      empty:{text:'<span class="hall">Try "root"? ...maybe not.</span>',score:0},
+    },lesson:'<strong>Lesson:</strong> CPU (65) + Firewall (55) + Handbook (90) = 210 wt — over budget AND useless. Policy (25) + Boot (30) + Encoding (40) = 95 wt, perfect answer. Small + specific + relevant.'},
 ];
 
-// ── Client-side scoring ──
+// ── Client-side scoring (improved: extra items degrade gracefully) ──
 function localEvaluate(levelIdx, bag) {
   const level = OFFLINE_LEVELS[levelIdx];
   if (!level) return { responseText: "Invalid level.", score: 0, quality: "empty", items: [], lesson: "" };
@@ -458,10 +457,29 @@ function localEvaluate(levelIdx, bag) {
   if (totalWt > level.capacity) return { responseText: "Backpack too heavy! 💥", score: 0, quality: "overweight", items: level.items.map(i => ({id:i.id,type:i.type})), lesson: "" };
   const r = level._r, bagSet = new Set(bag);
   let resp;
-  if (bag.length === 0) resp = {...r.empty, quality:"empty"};
-  else if (r.perfect.keys.length === bag.length && r.perfect.keys.every(k => bagSet.has(k))) resp = {...r.perfect, quality:"perfect"};
-  else if (r.good.keys.every(k => bagSet.has(k)) && r.good.keys.length > 0) resp = {...r.good, quality:"good"};
-  else { let sig=0,noi=0; for(const id of bag){const it=level.items.find(i=>i.id===id);if(it?.type==="signal")sig++;if(it?.type==="noise")noi++;} if(noi>=sig)resp={...r.hall,quality:"hallucination"};else if(r.partial.keys&&r.partial.keys.some(k=>bagSet.has(k)))resp={...r.partial,quality:"partial"};else resp={...r.hall,quality:"hallucination"}; }
+  if (bag.length === 0) {
+    resp = {...r.empty, quality:"empty"};
+  } else if (r.perfect.keys.every(k => bagSet.has(k))) {
+    // Perfect if you have all perfect keys (extras OK if all signal/partial)
+    const extras = bag.filter(id => !r.perfect.keys.includes(id));
+    const extraNoise = extras.some(id => { const it = level.items.find(i => i.id === id); return it && it.type === "noise"; });
+    if (extraNoise) {
+      resp = {...r.good, quality:"good"};
+    } else if (extras.length === 0) {
+      resp = {...r.perfect, quality:"perfect"};
+    } else {
+      // Has extra signal/partial — still good, slightly less than perfect
+      resp = {...r.good, quality:"good"};
+    }
+  } else if (r.good.keys.every(k => bagSet.has(k)) && r.good.keys.length > 0) {
+    resp = {...r.good, quality:"good"};
+  } else {
+    let sig=0, noi=0;
+    for (const id of bag) { const it = level.items.find(i => i.id === id); if (it?.type === "signal") sig++; if (it?.type === "noise") noi++; }
+    if (noi >= sig) resp = {...r.hall, quality:"hallucination"};
+    else if (r.partial.keys && r.partial.keys.some(k => bagSet.has(k))) resp = {...r.partial, quality:"partial"};
+    else resp = {...r.hall, quality:"hallucination"};
+  }
   return { responseText: resp.text, score: resp.score, quality: resp.quality, items: level.items.map(i => ({id:i.id,type:i.type})), lesson: level.lesson };
 }
 
