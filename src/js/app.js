@@ -76,7 +76,16 @@ function renderIntro(){
     </div>
   </div>`;
 }
-function startGame(){state={screen:"play",level:0,bag:[],scores:[],phase:"pick",lastResult:null,hintUsed:false};render();}
+function startGame(){
+  // Ensure tutorial is at index 0
+  if (levels.length && levels[0].tag !== "TUTORIAL") {
+    const tut = OFFLINE_LEVELS.find(l => l.tutorial === true);
+    if (tut) levels.unshift(tut);
+  }
+  if (!levels.length) levels = OFFLINE_LEVELS;
+  state={screen:"play",level:0,bag:[],scores:[],phase:"pick",lastResult:null,hintUsed:false};
+  render();
+}
 
 // ── LEVEL ──
 function renderLevel(){
@@ -118,16 +127,25 @@ function renderLevel(){
     </div>
   </div>`;
 
+  // Count how many signal items exist for guidance
+  const offItems = offL && offL.items ? offL.items : items;
+  const signalCount = offItems.filter(i => i.type === "signal").length;
+  const totalItems = items.length;
+
   // Backpack
   html+=`<div class="backpack ${over?"overweight":""}" id="backpack" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDropBag(event)">
-    <span class="bp-label">🎒 BACKPACK</span>
+    <span class="bp-label">🎒 BACKPACK (${bagItems.length} packed)</span>
     <span class="bp-weight ${over?"over":""}">${usedWt} / ${L.capacity} wt</span>
-    ${bagItems.length===0?'<div class="bp-empty">👆 Click items below to add them here</div>':""}
+    ${bagItems.length===0?`<div class="bp-empty" style="text-align:center">
+      <div style="font-size:24px;margin-bottom:6px">⬇️</div>
+      <div>Click any item below to pack it</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:4px">You don't need all ${totalItems} — pick only the ${signalCount} that help solve the problem</div>
+    </div>`:""}
     ${bagItems.map(i=>itemHTML(i,true,typeMap,state.phase==="done",isTutorial)).join("")}
   </div>`;
 
   // Items
-  html+=`<div class="shelf-label">📦 AVAILABLE DATA — read each description, then decide</div>
+  html+=`<div class="shelf-label">📦 CHOOSE ${signalCount} OF ${totalItems} ITEMS — click to pack, click again to remove</div>
   <div class="shelf" id="shelf" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDropShelf(event)">
     ${shelfItems.length===0?'<div class="bp-empty">All items packed!</div>':""}
     ${shelfItems.map(i=>itemHTML(i,false,typeMap,state.phase==="done",isTutorial)).join("")}
