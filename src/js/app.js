@@ -55,17 +55,17 @@ function renderIntro(){
     <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot walk"></div></div>
     <div class="hdr"><h1>Ready, ${player?player.name.split(" ")[0]:"Robot"}?</h1></div>
     <p style="font-size:14px;color:var(--text);max-width:440px;margin:0 auto 16px;line-height:1.6">
-      You're a robot with a <strong style="color:var(--gold)">backpack</strong>. Your backpack is an AI's <strong style="color:var(--gold)">context window</strong> — the data it can see when solving a problem.<br><br>
-      Each level gives you a <strong style="color:var(--green)">situation briefing</strong> and several <strong>data items</strong> to choose from. Pick the ones that help solve the problem. But watch the weight — your backpack has a limit!
+      You're a robot with a backpack. Your backpack represents an AI's context window — the data it can see when solving a problem.<br><br>
+      Each level describes a situation and gives you several data items. Pick the ones that help solve the problem, but watch the weight — your backpack has a limit!
     </p>
     <div class="rules">
       <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.15em;margin-bottom:10px">HOW TO PLAY</div>
-      <div class="rule"><span class="rule-i">📖</span>Read the <strong>situation briefing</strong> — it tells you what problem to solve</div>
-      <div class="rule"><span class="rule-i">🔍</span>Read each item's <strong>description</strong> — decide if it helps or not</div>
-      <div class="rule"><span class="rule-i">👆</span><strong>Click items</strong> to add/remove them from your backpack</div>
-      <div class="rule"><span class="rule-i">⚖️</span>Stay under the <strong>weight limit</strong> — heavy ≠ valuable</div>
-      <div class="rule"><span class="rule-i">🤖</span>Hit "Ask the AI" — it answers based <strong>ONLY</strong> on your backpack</div>
-      <div class="rule"><span class="rule-i">💡</span>Stuck? Use the <strong>Hint</strong> button for guidance</div>
+      <div class="rule"><span class="rule-i">📖</span>Read the situation briefing to understand the problem</div>
+      <div class="rule"><span class="rule-i">🔍</span>Read each item's description — is it useful or junk?</div>
+      <div class="rule"><span class="rule-i">👆</span>Click items to add or remove them from your backpack</div>
+      <div class="rule"><span class="rule-i">⚖️</span>Stay under the weight limit (heavy ≠ valuable!)</div>
+      <div class="rule"><span class="rule-i">🤖</span>The AI only sees what's in your backpack — choose wisely</div>
+      <div class="rule"><span class="rule-i">💡</span>Stuck? Hit the Hint button for a nudge</div>
     </div>
     <p style="font-size:12px;color:var(--dim);max-width:400px;margin:0 auto 16px">Level 0 is a tutorial — it walks you through the mechanics step by step.</p>
     <button class="btn btn-go" onclick="startGame()" style="max-width:220px;margin:0 auto">Start Tutorial →</button>
@@ -89,7 +89,8 @@ function renderLevel(){
   const typeMap={};if(state.lastResult&&state.lastResult.items)state.lastResult.items.forEach(it=>typeMap[it.id]=it.type);
   const shelfItems=L.items.filter(i=>!state.bag.includes(i.id));
   const bagItems=L.items.filter(i=>state.bag.includes(i.id));
-  const isTutorial = L.tutorial === true || (OFFLINE_LEVELS[state.level] && OFFLINE_LEVELS[state.level].tutorial === true);
+  const offL = getOfflineLevel(state.level);
+  const isTutorial = L.tutorial === true || (offL && offL.tutorial === true);
 
   let html=`<div class="scene">
     <div class="scene-top"><div class="robot-wrap">
@@ -104,7 +105,7 @@ function renderLevel(){
   // Briefing
   html+=`<div class="card" style="margin-bottom:12px">
     <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.15em;margin-bottom:8px">📋 SITUATION BRIEFING</div>
-    <div style="font-size:13px;line-height:1.6;color:var(--text)">${L.briefing || (OFFLINE_LEVELS[state.level] && OFFLINE_LEVELS[state.level].briefing) || L.desc}</div>
+    <div style="font-size:13px;line-height:1.6;color:var(--text)">${L.briefing || (offL && offL.briefing) || L.desc}</div>
     <div style="margin-top:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
       <div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--green);letter-spacing:.1em;margin-bottom:4px">🎯 YOUR MISSION</div>
       <div style="font-size:13px;font-weight:600;color:var(--green)">${L.goal}</div>
@@ -157,9 +158,24 @@ function itemHTML(item,inBag,typeMap,locked,isTutorial){
   </div>`;
 }
 
+function getOfflineLevel(idx) {
+  const L = levels[idx];
+  if (!L) return OFFLINE_LEVELS[idx];
+  // Match by tag name, not index (server levels may not have tutorial)
+  const match = OFFLINE_LEVELS.find(ol => ol.tag === L.tag);
+  if (match) return match;
+  // If no tag match, try offset (server has no tutorial, so offset by 1)
+  const hasServerTutorial = levels.some(l => l.tag === "TUTORIAL");
+  if (!hasServerTutorial && OFFLINE_LEVELS[0] && OFFLINE_LEVELS[0].tutorial) {
+    return OFFLINE_LEVELS[idx + 1];
+  }
+  return OFFLINE_LEVELS[idx];
+}
+
 function showHint(){
   const L=levels[state.level];
-  const hint = (L && L.hint) || (OFFLINE_LEVELS[state.level] && OFFLINE_LEVELS[state.level].hint);
+  const offL = getOfflineLevel(state.level);
+  const hint = (L && L.hint) || (offL && offL.hint);
   if(!hint)return;
   state.hintUsed=true;
   const box=$("#hint-box");if(!box)return;
