@@ -227,7 +227,17 @@ async function doSubmit(){
   state.phase="responded";render();
   $("#result").innerHTML=`<div class="r-card"><div class="r-head"><span class="r-avatar">🤖</span><span class="r-who">AI COMPANION</span></div><div style="display:flex;gap:5px;padding:8px 0"><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite"></span><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite .2s"></span><span style="width:6px;height:6px;border-radius:50%;background:var(--dim);animation:blink 1.2s infinite .4s"></span></div></div>`;
   $("#result").classList.add("show");
-  let result;try{result=await api.post("/api/submit",{level:state.level,bag:state.bag})}catch(e){result=localEvaluate(state.level,state.bag)}
+  let result;
+  // Tutorial is client-only — always score locally
+  // For other levels, adjust index because server doesn't have tutorial
+  const isTutorialLevel = L.tutorial === true;
+  if (isTutorialLevel) {
+    result = localEvaluate(state.level, state.bag);
+  } else {
+    const serverIndex = L.tutorial === true ? state.level : state.level - (levels[0] && levels[0].tutorial ? 1 : 0);
+    try { result = await api.post("/api/submit", {level: serverIndex, bag: state.bag}); }
+    catch(e) { result = localEvaluate(state.level, state.bag); }
+  }
   state.lastResult=result;state.scores.push(result.score);state.phase="done";render();
   if(result.score<=10)spawnParticles();
   setTimeout(()=>{const v=$("#verdict");if(v)v.scrollIntoView({behavior:"smooth",block:"center"})},200);
