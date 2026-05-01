@@ -25,8 +25,9 @@ function render(){
 }
 function renderPips(){
   const el=$("#progress");
-  if(!el||!levels.length){if(el)el.innerHTML="";return;}
-  el.innerHTML=levels.map((_,i)=>{let c="";if(i<state.level)c=state.scores[i]>=60?"done":"fail";else if(i===state.level&&state.screen==="play")c="active";return`<div class="prog-pip ${c}"></div>`;}).join("");
+  const totalLevels = Math.max(levels.length, OFFLINE_LEVELS.length);
+  if(!el||!totalLevels){if(el)el.innerHTML="";return;}
+  el.innerHTML=Array.from({length:totalLevels},(_,i)=>{let c="";if(i<state.level)c=state.scores[i]>=60?"done":"fail";else if(i===state.level&&state.screen==="play")c="active";return`<div class="prog-pip ${c}"></div>`;}).join("");
 }
 
 // ── LOGIN ──
@@ -80,15 +81,21 @@ function startGame(){state={screen:"play",level:0,bag:[],scores:[],phase:"pick",
 // ── LEVEL ──
 function renderLevel(){
   const L=levels[state.level];if(!L)return;
-  const usedWt=state.bag.reduce((s,id)=>s+L.items.find(i=>i.id===id).wt,0);
+  const offL = getOfflineLevel(state.level);
+  // Merge longer tips from offline data
+  const items = L.items.map(item => {
+    const offItem = offL && offL.items ? offL.items.find(oi => oi.id === item.id) : null;
+    return { ...item, tip: (offItem && offItem.tip && offItem.tip.length > (item.tip||'').length) ? offItem.tip : item.tip };
+  });
+  const usedWt=state.bag.reduce((s,id)=>s+items.find(i=>i.id===id).wt,0);
   const pct=Math.min(usedWt/L.capacity*100,100);
   const over=usedWt>L.capacity;
   const fillColor=over?"var(--red)":pct>75?"var(--orange)":"var(--gold)";
   let robotClass="walk";
   if(state.phase==="done"&&state.lastResult){robotClass=state.lastResult.score>=60?"celebrate":state.lastResult.score<=10?"explode":"idle";}else if(over){robotClass="heavy";}
   const typeMap={};if(state.lastResult&&state.lastResult.items)state.lastResult.items.forEach(it=>typeMap[it.id]=it.type);
-  const shelfItems=L.items.filter(i=>!state.bag.includes(i.id));
-  const bagItems=L.items.filter(i=>state.bag.includes(i.id));
+  const shelfItems=items.filter(i=>!state.bag.includes(i.id));
+  const bagItems=items.filter(i=>state.bag.includes(i.id));
   const offL = getOfflineLevel(state.level);
   const isTutorial = L.tutorial === true || (offL && offL.tutorial === true);
 
@@ -218,11 +225,16 @@ function fillVerdict(r){
   const L=levels[state.level];const sc=r.score;
   let icon,title;
   if(sc>=90){icon="🏆";title="Perfect Pack!";}else if(sc>=60){icon="✨";title="Good Choices";}else if(sc>=25){icon="⚠️";title="Incomplete";}else{icon="💥";title="BOOM!";}
-  const typeMap={};if(r.items)r.items.forEach(it=>typeMap[it.id]=it.type);
-  const sig=L.items.filter(i=>state.bag.includes(i.id)&&typeMap[i.id]==="signal").length;
-  const totSig=L.items.filter(i=>typeMap[i.id]==="signal").length;
-  const noi=L.items.filter(i=>state.bag.includes(i.id)&&typeMap[i.id]==="noise").length;
-  const wt=state.bag.reduce((s,id)=>s+L.items.find(i=>i.id===id).wt,0);
+  const typeMap = {}; if (r.items) r.items.forEach(it => typeMap[it.id] = it.type);
+  const offL2 = getOfflineLevel(state.level);
+  const verdictItems = L.items.map(item => {
+    const offItem = offL2 && offL2.items ? offL2.items.find(oi => oi.id === item.id) : null;
+    return { ...item, type: typeMap[item.id] || (offItem && offItem.type) || item.type };
+  });
+  const sig = verdictItems.filter(i => state.bag.includes(i.id) && typeMap[i.id] === "signal").length;
+  const totSig = verdictItems.filter(i => typeMap[i.id] === "signal").length;
+  const noi = verdictItems.filter(i => state.bag.includes(i.id) && typeMap[i.id] === "noise").length;
+  const wt = state.bag.reduce((s, id) => s + L.items.find(i => i.id === id).wt, 0);
   const isLast=state.level>=levels.length-1;
   $("#verdict").innerHTML=`<div class="v-card">
     <div class="v-icon">${icon}</div><div class="v-title">${title}</div>
