@@ -16,7 +16,7 @@ const _ttl=["Sparkplug","Codebreaker","Debugger","Firewall","Compiler","Overcloc
 function _pk(a){return a[Math.floor(Math.random()*a.length)]}
 function genRobotNames(n){const s=new Set(),r=[];while(r.length<n){const nm=_pk(_pre)+"-"+_pk(_suf)+" "+_pk(_ttl);if(!s.has(nm)){s.add(nm);r.push(nm);}}return r;}
 
-render();
+
 
 function render(){
   const screens={login:renderLogin,intro:renderIntro,play:renderLevel,end:renderEnd,leaderboard:renderLeaderboard};
@@ -69,7 +69,7 @@ function renderIntro(){
       <div class="rule"><span class="rule-i">💡</span>Stuck? Hit the Hint button for a nudge</div>
     </div>
     <p style="font-size:12px;color:var(--dim);max-width:400px;margin:0 auto 16px">Level 0 is a tutorial — it walks you through the mechanics step by step.</p>
-    <button class="btn btn-go" onclick="startGame()" style="max-width:220px;margin:0 auto">Start Tutorial →</button>
+    <button class="btn btn-go" onclick="startGame()" style="max-width:220px;margin:0 auto">Start →</button>
     <div style="display:flex;gap:8px;max-width:300px;margin:12px auto 0">
       <button class="btn btn-clear" onclick="state.screen='leaderboard';state._returnTo='intro';render()" style="flex:1">🏆 Leaderboard</button>
       <button class="btn btn-clear" onclick="changeName()" style="flex:1">🔄 Change Name</button>
@@ -436,3 +436,6 @@ function localEvaluate(levelIdx, bag) {
   else { let sig=0,noi=0; for(const id of bag){const it=level.items.find(i=>i.id===id);if(it?.type==="signal")sig++;if(it?.type==="noise")noi++;} if(noi>=sig)resp={...r.hall,quality:"hallucination"};else if(r.partial.keys&&r.partial.keys.some(k=>bagSet.has(k)))resp={...r.partial,quality:"partial"};else resp={...r.hall,quality:"hallucination"}; }
   return { responseText: resp.text, score: resp.score, quality: resp.quality, items: level.items.map(i => ({id:i.id,type:i.type})), lesson: level.lesson };
 }
+
+// ── Boot ──
+render();
