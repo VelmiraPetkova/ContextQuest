@@ -1,8 +1,8 @@
-// Context Quest v3 — Quiz + Backpack hybrid
+// Context Quest v4 — 3 missions × 2 questions + narrative
 const $=s=>document.querySelector(s);
 const game=$("#game");
 let player=null;
-let state={screen:"login",mission:0,question:0,clean:0,noise:0,answers:[],totalClean:0,totalNoise:0};
+let state={screen:"login",mission:0,step:0,clean:0,noise:0,results:[],totalClean:0,totalNoise:0};
 
 const api={
   get:u=>fetch(u).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}),
@@ -14,29 +14,24 @@ const _ttl=["Sparkplug","Codebreaker","Debugger","Firewall","Compiler","Overcloc
 function _pk(a){return a[Math.floor(Math.random()*a.length)]}
 function genNames(n){const s=new Set(),r=[];while(r.length<n){const nm=_pk(_pre)+"-"+_pk(_suf)+" "+_pk(_ttl);if(!s.has(nm)){s.add(nm);r.push(nm);}}return r;}
 
-// ── Tank bar HTML ──
 function tankBar(clean,noise,max){
-  const cleanPct=Math.round(clean/max*100);
-  const noisePct=Math.round(noise/max*100);
-  const freePct=100-cleanPct-noisePct;
-  return`<div style="margin:12px 0">
+  const cp=Math.round(clean/max*100),np=Math.round(noise/max*100),fp=Math.max(0,100-cp-np);
+  return`<div style="margin:14px 0">
     <div style="display:flex;justify-content:space-between;font-family:'Silkscreen',cursive;font-size:9px;margin-bottom:4px">
-      <span style="color:var(--green)">Signal ${cleanPct}%</span>
-      <span>CONTEXT PACK</span>
-      <span style="color:var(--red)">Noise ${noisePct}%</span>
+      <span style="color:var(--green)">🟢 Signal ${cp}%</span>
+      <span style="color:var(--dim)">CONTEXT PACK</span>
+      <span style="color:var(--red)">Noise ${np}% 🔴</span>
     </div>
-    <div style="height:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex">
-      <div style="width:${cleanPct}%;background:var(--green);transition:width .5s"></div>
-      <div style="width:${noisePct}%;background:var(--red);transition:width .5s"></div>
-      <div style="width:${freePct}%;background:var(--surface)"></div>
+    <div style="height:18px;background:var(--surface);border:2px solid var(--border);border-radius:10px;overflow:hidden;display:flex">
+      <div style="width:${cp}%;background:linear-gradient(90deg,#2ea043,#3fb950);transition:width .6s ease"></div>
+      <div style="width:${np}%;background:linear-gradient(90deg,#da3633,#f85149);transition:width .6s ease"></div>
     </div>
-    ${noisePct>=60?'<div style="font-size:10px;color:var(--red);margin-top:4px;text-align:center">⚠️ Too much noise — system unstable!</div>':''}
+    ${np>=50?'<div style="font-size:10px;color:var(--red);margin-top:4px;text-align:center;animation:blink 1s infinite">⚠️ Context pack destabilizing!</div>':''}
   </div>`;
 }
 
-// ── Render ──
-function render(){({login:renderLogin,intro:renderIntro,play:renderPlay,feedback:renderFeedback,explode:renderExplode,missionEnd:renderMissionEnd,end:renderEnd,leaderboard:renderLeaderboard,howto:renderHowTo}[state.screen]||renderLogin)();renderPips();}
-function renderPips(){const el=$("#progress");if(!el)return;el.innerHTML=MISSIONS.map((_,i)=>{let c="";if(i<state.mission)c=state.answers[i]&&state.answers[i].clean>state.answers[i].noise?"done":"fail";else if(i===state.mission&&state.screen==="play")c="active";return`<div class="prog-pip ${c}"></div>`}).join("");}
+function render(){({login:renderLogin,intro:renderIntro,narrative:renderNarrative,play:renderPlay,feedback:renderFeedback,explode:renderExplode,missionEnd:renderMissionEnd,end:renderEnd,leaderboard:renderLeaderboard,howto:renderHowTo}[state.screen]||renderLogin)();renderPips();}
+function renderPips(){const el=$("#progress");if(!el)return;el.innerHTML=MISSIONS.map((_,i)=>{let c="";if(i<state.mission)c=(state.results[i]&&state.results[i].clean>state.results[i].noise)?"done":"fail";else if(i===state.mission&&["play","narrative","feedback"].includes(state.screen))c="active";return`<div class="prog-pip ${c}"></div>`}).join("");}
 
 // ── Login ──
 async function renderLogin(){
@@ -45,7 +40,7 @@ async function renderLogin(){
   game.innerHTML=`<div class="screen show">
     <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot walk"></div></div>
     <div class="hdr"><h1>Choose Your Designation</h1></div>
-    <p>Pick a robot name for the leaderboard.</p>
+    <p>Pick a name for the leaderboard.</p>
     <div id="names" style="display:flex;flex-direction:column;gap:8px;max-width:320px;margin:0 auto 16px"></div>
     <button class="btn btn-clear" onclick="loadNames()" style="max-width:200px;margin:0 auto 12px;display:block">🎲 Reroll</button>
   </div>`;
@@ -59,56 +54,71 @@ function renderIntro(){
   game.innerHTML=`<div class="screen show">
     <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot walk"></div></div>
     <div class="hdr"><h1>Hey, ${player?player.name.split(" ")[0]:"Robot"}!</h1></div>
-    <p style="font-size:15px;max-width:400px;margin:0 auto 8px">You're a DevOps robot with a <strong style="color:var(--gold)">Context Pack</strong>.</p>
-    <div style="max-width:380px;margin:0 auto 20px;font-size:13px;color:var(--dim);line-height:1.6">
-      Each mission shows you a real scenario and asks questions.<br>
-      <span style="color:var(--green)">🟢 Right answers</span> add clean signal.<br>
-      <span style="color:var(--red)">🔴 Wrong answers</span> add noise.<br>
-      <span style="color:var(--red)">💥 Too much noise = system failure!</span>
-    </div>
-    ${tankBar(30,10,100)}
+    <p style="font-size:15px;max-width:420px;margin:0 auto 12px;line-height:1.6">
+      You're a DevOps robot on a mission. At each step you'll face a choice — <span style="color:var(--green)">right choices</span> add signal, <span style="color:var(--red)">wrong ones</span> add noise.
+    </p>
+    <p style="font-size:13px;color:var(--dim);max-width:380px;margin:0 auto 20px">Too much noise and your system overloads. 💥<br>3 missions. ~5 minutes. Let's go.</p>
     <button class="btn btn-go" onclick="startGame()" style="max-width:220px;margin:0 auto">🚀 Start Mission →</button>
     <div style="display:flex;gap:8px;max-width:340px;margin:12px auto 0">
-      <button class="btn btn-clear" onclick="state.screen='howto';render()" style="flex:1">❓ How to play</button>
-      <button class="btn btn-clear" onclick="state.screen='leaderboard';state._ret='intro';render()" style="flex:1">🏆 Leaderboard</button>
+      <button class="btn btn-clear" onclick="state.screen='howto';render()" style="flex:1">❓ How</button>
+      <button class="btn btn-clear" onclick="state.screen='leaderboard';state._ret='intro';render()" style="flex:1">🏆 Board</button>
       <button class="btn btn-clear" onclick="localStorage.removeItem('cq_player');player=null;state.screen='login';render()" style="flex:1">🔄 Name</button>
     </div>
   </div>`;
 }
 function renderHowTo(){
   game.innerHTML=`<div class="screen show">
-    <div class="hdr"><h1>How To Play</h1></div>
+    <div class="hdr"><h1>How It Works</h1></div>
     <div class="rules" style="max-width:400px">
-      <div class="rule"><span class="rule-i">📖</span>Read the scenario — logs, errors, alerts</div>
-      <div class="rule"><span class="rule-i">🤔</span>Answer the question — what's the right diagnosis?</div>
-      <div class="rule"><span class="rule-i">🟢</span>Correct = signal added to your Context Pack</div>
-      <div class="rule"><span class="rule-i">🔴</span>Wrong = noise added — the AI gets confused</div>
+      <div class="rule"><span class="rule-i">📖</span>You'll see a real DevOps scenario</div>
+      <div class="rule"><span class="rule-i">🤔</span>Make a choice — what would you do?</div>
+      <div class="rule"><span class="rule-i">🟢</span>Good choice = signal in your context pack</div>
+      <div class="rule"><span class="rule-i">🔴</span>Bad choice = noise (the AI gets confused)</div>
       <div class="rule"><span class="rule-i">💥</span>Too much noise = system overload!</div>
-      <div class="rule"><span class="rule-i">🎯</span>Goal: finish all missions with maximum signal</div>
     </div>
     <button class="btn btn-clear" onclick="state.screen='intro';render()" style="max-width:200px;margin:0 auto">← Back</button>
   </div>`;
 }
-function startGame(){state={screen:"play",mission:0,question:0,clean:0,noise:0,answers:[],totalClean:0,totalNoise:0};render();}
+function startGame(){state={screen:"narrative",mission:0,step:0,clean:0,noise:0,results:[],totalClean:0,totalNoise:0};render();}
 
-// ── Play (quiz question) ──
-function renderPlay(){
+// ── Narrative (story beat between questions) ──
+function renderNarrative(){
   const M=MISSIONS[state.mission];if(!M)return;
-  const Q=M.questions[state.question];if(!Q){state.screen="missionEnd";render();return;}
-  const packMax=M.questions.length*20;
+  const S=M.steps[state.step];if(!S)return;
+  const packMax=M.steps.length*25;
+
   game.innerHTML=`<div class="card" style="animation:slideUp .4s ease">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-family:'Silkscreen',cursive;font-size:10px;color:var(--gold);letter-spacing:.12em">${M.tag}</div>
-      <div style="font-family:'Silkscreen',cursive;font-size:10px;color:var(--dim)">Q${state.question+1}/${M.questions.length}</div>
+    <div style="font-family:'Silkscreen',cursive;font-size:10px;color:var(--gold);letter-spacing:.12em;margin-bottom:6px">${M.tag}</div>
+    <div class="scene-title" style="margin-bottom:14px">${M.title}</div>
+
+    <div style="background:var(--surface);border-left:3px solid var(--gold);padding:14px 16px;border-radius:0 10px 10px 0;margin-bottom:16px">
+      <div style="font-size:13px;line-height:1.7;color:var(--text)">${S.narrative}</div>
     </div>
-    <div class="scene-title" style="margin-bottom:12px">${M.title}</div>
 
-    ${Q.context?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;font-family:'Space Mono',monospace;font-size:11px;line-height:1.6;color:var(--dim);white-space:pre-wrap">${Q.context}</div>`:''}
+    ${S.context?`<div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-family:'Space Mono',monospace;font-size:11px;line-height:1.6;color:#c9d1d9;white-space:pre-wrap">${S.context}</div>`:''}
 
-    <div style="font-size:14px;font-weight:600;margin-bottom:14px;color:var(--text)">${Q.question}</div>
+    ${tankBar(state.clean,state.noise,packMax)}
+
+    <button class="btn btn-go" onclick="state.screen='play';render()" style="max-width:260px;margin:0 auto">${S.actionLabel||'What do you do? →'}</button>
+  </div>`;
+}
+
+// ── Play (choice) ──
+function renderPlay(){
+  const M=MISSIONS[state.mission];
+  const S=M.steps[state.step];
+  const packMax=M.steps.length*25;
+
+  game.innerHTML=`<div class="card" style="animation:slideUp .3s ease">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-family:'Silkscreen',cursive;font-size:10px;color:var(--gold)">${M.tag}</div>
+      <div style="font-family:'Silkscreen',cursive;font-size:10px;color:var(--dim)">Step ${state.step+1}/${M.steps.length}</div>
+    </div>
+
+    <div style="font-size:15px;font-weight:700;margin-bottom:16px;color:var(--text);line-height:1.4">${S.question}</div>
 
     <div style="display:flex;flex-direction:column;gap:8px">
-      ${Q.options.map((opt,i)=>`<button class="btn btn-clear" onclick="answer(${i})" style="text-align:left;padding:12px 16px;font-size:13px;justify-content:flex-start">
+      ${S.options.map((opt,i)=>`<button class="btn btn-clear" onclick="answer(${i})" style="text-align:left;padding:14px 16px;font-size:13px;line-height:1.4;justify-content:flex-start">
         <span style="font-family:'Silkscreen',cursive;font-size:11px;color:var(--gold);margin-right:10px;min-width:20px">${String.fromCharCode(65+i)}</span>${opt.text}
       </button>`).join("")}
     </div>
@@ -117,47 +127,51 @@ function renderPlay(){
   </div>`;
 }
 
-// ── Answer → Feedback ──
 function answer(idx){
   const M=MISSIONS[state.mission];
-  const Q=M.questions[state.question];
-  const opt=Q.options[idx];
-  state._lastAnswer={idx,correct:opt.correct,explanation:opt.explanation,optText:opt.text};
-  if(opt.correct){state.clean+=20;}else{state.noise+=20;}
-  // Check for explosion
-  const packMax=M.questions.length*20;
+  const S=M.steps[state.step];
+  const opt=S.options[idx];
+  state._last={correct:opt.correct,explanation:opt.explanation,result:opt.result};
+  if(opt.correct){state.clean+=25}else{state.noise+=25}
+  const packMax=M.steps.length*25;
   if(state.noise>=packMax){state.screen="explode";render();return;}
   state.screen="feedback";render();
 }
 
+// ── Feedback (narrative consequence) ──
 function renderFeedback(){
-  const a=state._lastAnswer;
+  const a=state._last;
   const M=MISSIONS[state.mission];
-  const packMax=M.questions.length*20;
+  const packMax=M.steps.length*25;
+
   game.innerHTML=`<div class="card" style="animation:slideUp .3s ease">
-    <div style="text-align:center;margin-bottom:12px">
+    <div style="text-align:center;margin-bottom:14px">
       ${a.correct
-        ?`<div style="font-size:36px">✅</div><div style="font-family:'Silkscreen',cursive;font-size:16px;color:var(--green);margin:6px 0">Correct!</div><div style="font-size:12px;color:var(--green)">+20% clean signal added</div>`
-        :`<div style="font-size:36px">❌</div><div style="font-family:'Silkscreen',cursive;font-size:16px;color:var(--red);margin:6px 0">Not quite...</div><div style="font-size:12px;color:var(--red)">+20% noise added to your context</div>`
+        ?`<div style="font-size:32px">✅</div><div style="font-family:'Silkscreen',cursive;font-size:14px;color:var(--green);margin:6px 0">Signal Added</div>`
+        :`<div style="font-size:32px">❌</div><div style="font-family:'Silkscreen',cursive;font-size:14px;color:var(--red);margin:6px 0">Noise Added</div>`
       }
     </div>
 
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px">
-      <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--gold);letter-spacing:.1em;margin-bottom:6px">💡 WHY?</div>
-      <div style="font-size:12px;line-height:1.6;color:var(--text)">${a.explanation}</div>
+    <div style="background:var(--surface);border-left:3px solid ${a.correct?'var(--green)':'var(--red)'};padding:14px 16px;border-radius:0 10px 10px 0;margin-bottom:14px">
+      <div style="font-size:13px;line-height:1.7;color:var(--text)">${a.result}</div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-family:'Silkscreen',cursive;font-size:8px;color:var(--gold);letter-spacing:.1em;margin-bottom:4px">💡 CONTEXT ENGINEERING</div>
+      <div style="font-size:12px;line-height:1.5;color:var(--dim)">${a.explanation}</div>
     </div>
 
     ${tankBar(state.clean,state.noise,packMax)}
 
-    <button class="btn btn-go" onclick="nextQuestion()" style="max-width:240px;margin:0 auto">Continue →</button>
+    <button class="btn btn-go" onclick="nextStep()" style="max-width:240px;margin:0 auto">Continue →</button>
   </div>`;
 }
 
-function nextQuestion(){
-  state.question++;
+function nextStep(){
+  state.step++;
   const M=MISSIONS[state.mission];
-  if(state.question>=M.questions.length){state.screen="missionEnd";render();}
-  else{state.screen="play";render();}
+  if(state.step>=M.steps.length){state.screen="missionEnd";render();}
+  else{state.screen="narrative";render();}
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -167,23 +181,23 @@ function renderExplode(){
     <div class="robot-wrap" style="margin:0 auto 12px"><div class="robot explode"></div></div>
     <div style="font-size:48px;margin:12px 0">💥</div>
     <div class="hdr"><h1 style="color:var(--red)">System Overload!</h1></div>
-    <p>Too much noise in your context pack. The system couldn't recover.</p>
-    ${tankBar(state.clean,state.noise,MISSIONS[state.mission].questions.length*20)}
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;font-size:12px;color:var(--dim);line-height:1.5">
-      <strong style="color:var(--gold)">Context engineering lesson:</strong> Wrong data doesn't just waste space — it actively confuses the AI. A smaller, cleaner context beats a large, noisy one.
+    <p style="color:var(--dim)">Too much noise. The AI couldn't find the signal.</p>
+    ${tankBar(state.clean,state.noise,MISSIONS[state.mission].steps.length*25)}
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px auto;max-width:400px;font-size:12px;color:var(--dim);line-height:1.5">
+      <strong style="color:var(--gold)">Lesson:</strong> Wrong data doesn't just waste space — it actively confuses. A small, clean context beats a large, noisy one.
     </div>
     <button class="btn btn-go" onclick="retryMission()" style="max-width:220px;margin:0 auto">🔄 Retry Mission</button>
   </div>`;
 }
-function retryMission(){state.question=0;state.clean=0;state.noise=0;state.screen="play";render();}
+function retryMission(){state.step=0;state.clean=0;state.noise=0;state.screen="narrative";render();}
 
 // ── Mission End ──
 function renderMissionEnd(){
   const M=MISSIONS[state.mission];
-  const packMax=M.questions.length*20;
+  const packMax=M.steps.length*25;
   const pct=Math.round(state.clean/packMax*100);
   const stars=pct>=80?3:pct>=50?2:1;
-  state.answers[state.mission]={clean:state.clean,noise:state.noise,stars};
+  state.results[state.mission]={clean:state.clean,noise:state.noise,stars};
   state.totalClean+=state.clean;state.totalNoise+=state.noise;
   const isLast=state.mission>=MISSIONS.length-1;
 
@@ -193,34 +207,31 @@ function renderMissionEnd(){
     <p style="color:var(--dim)">${M.title}</p>
     <div style="font-size:32px;margin:8px 0">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>
     ${tankBar(state.clean,state.noise,packMax)}
-    <div style="display:flex;justify-content:center;gap:24px;margin:12px 0">
-      <div style="text-align:center"><div style="font-family:'Silkscreen',cursive;font-size:22px;color:var(--green)">${pct}%</div><div style="font-size:9px;color:var(--dim)">SIGNAL</div></div>
-      <div style="text-align:center"><div style="font-family:'Silkscreen',cursive;font-size:22px;color:var(--gold)">${stars}/3</div><div style="font-size:9px;color:var(--dim)">STARS</div></div>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px 0;font-size:12px;color:var(--dim);line-height:1.5">
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin:12px auto;max-width:400px;font-size:12px;color:var(--dim);line-height:1.5">
       <strong style="color:var(--gold)">Key takeaway:</strong> ${M.lesson}
     </div>
+
     <button class="btn ${isLast?'btn-go':'btn-next'}" onclick="${isLast?'endGame()':'nextMission()'}" style="max-width:240px;margin:0 auto">${isLast?'See Final Score →':'Next Mission →'}</button>
   </div>`;
 }
-function nextMission(){state.mission++;state.question=0;state.clean=0;state.noise=0;state.screen="play";render();window.scrollTo({top:0,behavior:"smooth"});}
+function nextMission(){state.mission++;state.step=0;state.clean=0;state.noise=0;state.screen="narrative";render();window.scrollTo({top:0,behavior:"smooth"});}
 
 // ── End ──
 async function endGame(){
   state.screen="end";
-  const totalQ=MISSIONS.reduce((s,m)=>s+m.questions.length,0);
-  const totalStars=state.answers.reduce((s,a)=>s+(a?a.stars:0),0);
-  const maxStars=MISSIONS.length*3;
-  const pct=Math.round(state.totalClean/(totalQ*20)*100);
+  const totalStars=state.results.reduce((s,a)=>s+(a?a.stars:0),0);
+  const totalQ=MISSIONS.reduce((s,m)=>s+m.steps.length,0);
+  const pct=Math.round(state.totalClean/(totalQ*25)*100);
   let rankTitle;if(pct>=80)rankTitle="Context Architect";else if(pct>=50)rankTitle="Signal Hunter";else rankTitle="Noise Survivor";
   if(player){await api.post("/api/save",{playerId:player.playerId,score:pct,perfect:totalStars,rankTitle}).catch(()=>{});}
   render();window.scrollTo({top:0,behavior:"smooth"});
 }
 function renderEnd(){
-  const totalStars=state.answers.reduce((s,a)=>s+(a?a.stars:0),0);
+  const totalStars=state.results.reduce((s,a)=>s+(a?a.stars:0),0);
   const maxStars=MISSIONS.length*3;
-  const totalQ=MISSIONS.reduce((s,m)=>s+m.questions.length,0);
-  const pct=Math.round(state.totalClean/(totalQ*20)*100);
+  const totalQ=MISSIONS.reduce((s,m)=>s+m.steps.length,0);
+  const pct=Math.round(state.totalClean/(totalQ*25)*100);
   let rank,rc;
   if(pct>=80){rank="🏆 Context Architect";rc="var(--gold)";}else if(pct>=50){rank="✨ Signal Hunter";rc="var(--green)";}else{rank="⚠️ Noise Survivor";rc="var(--orange)";}
   game.innerHTML=`<div class="screen show">
@@ -236,10 +247,8 @@ function renderEnd(){
     <div class="rules" style="margin-top:20px">
       <div style="font-family:'Silkscreen',cursive;font-size:9px;color:var(--purple);letter-spacing:.2em;margin-bottom:10px">WHAT YOU LEARNED</div>
       <div class="rule"><span class="rule-i">1.</span>Right data > more data. Signal beats volume.</div>
-      <div class="rule"><span class="rule-i">2.</span>Noise doesn't just waste space — it misleads the AI.</div>
-      <div class="rule"><span class="rule-i">3.</span>Logs + specs + changelogs > dashboards + runbooks.</div>
-      <div class="rule"><span class="rule-i">4.</span>A good AI says "I don't know" when data is missing.</div>
-      <div class="rule"><span class="rule-i">5.</span>This is context engineering. Not prompt tricks — data curation.</div>
+      <div class="rule"><span class="rule-i">2.</span>Noise actively misleads — it's worse than having nothing.</div>
+      <div class="rule"><span class="rule-i">3.</span>This is context engineering: curating what the AI sees.</div>
     </div>
     <div style="display:flex;gap:8px;max-width:400px;margin:16px auto 0">
       <button class="btn btn-go" onclick="startGame()">Play Again</button>
@@ -258,149 +267,133 @@ async function renderLeaderboard(){
   $("#lb").innerHTML=`<div style="max-width:440px;margin:0 auto">${entries.map(e=>{const medals=["👑","🥈","🥉"];const medal=e.rank<=3?medals[e.rank-1]:`#${e.rank}`;const isMe=player&&e.name===player.name;return`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:${isMe?"var(--gold-g)":"var(--panel)"};border:1px solid ${isMe?"var(--gold)":"var(--border)"};border-radius:10px;margin-bottom:6px"><span style="font-size:18px;width:28px;text-align:center">${medal}</span><span style="flex:1;font-weight:600;font-size:13px;${isMe?"color:var(--gold)":""}">${e.name}</span><span style="font-family:'Silkscreen',cursive;font-size:12px;color:var(--gold)">${e.score}%</span><span style="font-size:10px;color:var(--dim)">${e.perfect}⭐</span></div>`}).join("")}</div>`;
 }
 
-function spawnParticles(){/* kept for CSS */}
-
 // ═══════════════════════════════════════════════════
-// MISSIONS — quiz questions with context engineering lessons
+// 3 MISSIONS × 2 STEPS — with narrative transitions
 // ═══════════════════════════════════════════════════
 const MISSIONS = [
-  {tag:"MISSION 1",title:"The Encrypted Gateway",lesson:"The right key + protocol docs = access. Extra battery power is useless for a data problem.",
-    questions:[
-      {context:"ACCESS DENIED — AES-256 encrypted.\nProvide valid credentials.",
-        question:"Your robot hits a locked firewall. What do you need FIRST?",
+  // ── MISSION 1: The Firewall ──
+  {tag:"MISSION 1",title:"The Encrypted Gateway",
+    lesson:"Encryption is a data problem, not a power problem. The right key + the right protocol = access. Extra computing power is useless without the right data.",
+    steps:[
+      {narrative:"Your robot approaches a corporate network gateway. The terminal flickers to life with a harsh red glow.",
+        context:"$ connect gateway.corp.internal\n\n[FIREWALL] ACCESS DENIED\n[FIREWALL] Cipher: AES-256-GCM\n[FIREWALL] Provide valid credentials\n[FIREWALL] Brute-force protection: ENABLED",
+        actionLabel:"You need to get through →",
+        question:"The firewall demands AES-256 credentials. You scan the area and find data fragments. What do you grab first?",
         options:[
-          {text:"The encryption key that matches the cipher",correct:true,explanation:"Correct! An encryption key is the primary data you need. Without it, nothing else matters."},
-          {text:"Extra battery power for brute-force attack",correct:false,explanation:"More power won't help — AES-256 brute-force would take billions of years. This is a data problem, not a computing problem."},
-          {text:"A gaming module for distraction",correct:false,explanation:"Entertainment has zero value here. This adds noise to your context."},
-          {text:"A printer driver",correct:false,explanation:"There's no printer. Completely irrelevant data cluttering your context."},
+          {text:"🔑 An encryption key fragment matching AES-256",correct:true,
+            result:"The key fragment lights up as your scanner confirms: cipher match. It slots into your context pack with a clean green glow. You're halfway there.",
+            explanation:"The key directly matches the firewall's cipher. This is signal — data that's specifically relevant to the problem at hand."},
+          {text:"🔋 Extra battery pack for more processing power",correct:false,
+            result:"Your robot's power gauge jumps to 200%... but the terminal still shows ACCESS DENIED. More power doesn't help when you don't have the right key. The battery buzzes uselessly.",
+            explanation:"This is a classic context engineering mistake: adding more resources when the problem requires specific data. Power ≠ knowledge."},
+          {text:"🎮 A gaming module with GPU acceleration",correct:false,
+            result:"The GPU spins up, ready to crunch numbers. But AES-256 brute-force would take billions of years even at full speed. The terminal doesn't care about your framerate.",
+            explanation:"GPU acceleration sounds relevant to encryption, but brute-force is not viable for AES-256. This data is noise — it sounds related but doesn't help."},
+          {text:"🖨️ A printer driver found on the floor",correct:false,
+            result:"LaserJet 4000 driver v3.2.1. Your robot stares at it. There's no printer anywhere in sight. This is literal garbage data.",
+            explanation:"Completely irrelevant data. In context engineering, this is pure noise — it takes up space and adds nothing."},
         ]},
-      {context:"You have the key. The firewall expects a\nspecific handshake: challenge → response → verify",
-        question:"You found the key, but the firewall rejects it. What's missing?",
+      {narrative:"With the key fragment loaded, your robot approaches the terminal again. But the firewall rejects the key — it expects a specific handshake protocol.",
+        context:"$ authenticate --key fragment.aes\n\n[FIREWALL] Key format: VALID\n[FIREWALL] Handshake: FAILED\n[FIREWALL] Expected sequence: ???→???→???\n[FIREWALL] 1 attempt remaining",
+        actionLabel:"One attempt left →",
+        question:"The key is right but the handshake fails. You need the protocol sequence. What helps?",
         options:[
-          {text:"Protocol documentation — the handshake sequence",correct:true,explanation:"The key alone isn't enough. You need to know HOW to present it: challenge → response → verify."},
-          {text:"A stronger encryption key",correct:false,explanation:"The key is correct — the problem is the delivery format, not the key strength."},
-          {text:"Network packet capture",correct:false,explanation:"A capture would help identify the protocol, but the docs tell you directly. More efficient context."},
-          {text:"Firewall bypass tools",correct:false,explanation:"You're trying to authenticate, not bypass. Using the front door, not breaking in."},
-        ]},
-      {context:"Key: ✅ matched\nProtocol: ✅ loaded\nHandshake: challenge → response → ???",
-        question:"Almost there. The handshake is challenge → response → ???",
-        options:[
-          {text:"→ verify (complete the documented sequence)",correct:true,explanation:"The protocol docs said: challenge → response → verify. Following the documented sequence works."},
-          {text:"→ retry (send the key again)",correct:false,explanation:"Retrying the same step isn't how the protocol works. You need to follow the documented sequence."},
-          {text:"→ force (override the firewall)",correct:false,explanation:"Force-overriding adds noise — the system expects verify, not brute force."},
-          {text:"→ reboot (restart the firewall)",correct:false,explanation:"Rebooting loses your progress and doesn't solve the authentication problem."},
-        ]},
-    ]},
-
-  {tag:"MISSION 2",title:"The Corrupted Pipeline",lesson:"A corrupted packet (30 wt) + error table (45 wt) + network map (50 wt) = complete diagnosis. A 200-page architecture history = zero diagnostic value.",
-    questions:[
-      {context:"ERROR RATE: 73%\nPAYLOAD INTEGRITY: FAILED\nSome packets arriving malformed",
-        question:"Data pipeline is corrupted. What's the FIRST thing to examine?",
-        options:[
-          {text:"A captured corrupted packet — see what's wrong",correct:true,explanation:"Always start with the actual data. The corrupted packet shows SQL injection patterns — someone is injecting malicious payloads."},
-          {text:"Architecture history — how was this built?",correct:false,explanation:"A 200-page migration doc from 2019 adds massive noise. The pipeline worked fine then — what matters is what's happening NOW."},
-          {text:"A USB cable — check the hardware connection",correct:false,explanation:"This pipeline is software, not hardware. A USB cable is physically irrelevant."},
-          {text:"Server screenshot — what does it look like?",correct:false,explanation:"A photo shows an amber LED but doesn't explain what's wrong. Partial info at best."},
-        ]},
-      {context:"Corrupted packet analysis:\nHeaders show SQL injection pattern\nError code: 0x7F",
-        question:"The packet shows SQL injection with error 0x7F. What does 0x7F mean?",
-        options:[
-          {text:"Unauthorized write from external source",correct:true,explanation:"Error 0x7F = unauthorized external write. Now you know the corruption is coming from OUTSIDE your system."},
-          {text:"Memory overflow",correct:false,explanation:"0x7F isn't a memory error. Jumping to conclusions without checking the error table adds noise."},
-          {text:"Disk space full",correct:false,explanation:"Not a storage error. Wrong diagnosis = wrong fix = wasted time + noise in your context."},
-          {text:"Network timeout",correct:false,explanation:"Timeouts look different. The error specifically indicates unauthorized writes."},
-        ]},
-      {context:"Source: external injection\nPattern: SQL injection\nNeed to find: WHERE it's coming from",
-        question:"You know it's external SQL injection. How do you find the source?",
-        options:[
-          {text:"Network topology map — find the rogue node",correct:true,explanation:"The network map reveals a rogue API gateway at node 7.4.2 that shouldn't exist. Source found!"},
-          {text:"Read the architecture history document",correct:false,explanation:"200 pages about 2019 decisions won't tell you about a rogue node added recently. Heavy, noisy, useless."},
-          {text:"Check CPU and memory dashboards",correct:false,explanation:"Resources are fine — this is an injection attack, not a resource problem."},
-          {text:"Restart the pipeline",correct:false,explanation:"Restarting without fixing the source means it'll be re-corrupted immediately."},
+          {text:"📋 Protocol documentation: challenge → response → verify",correct:true,
+            result:"The docs reveal the sequence: challenge → response → verify. Your robot sends the key in the right format. The terminal flashes green.\n\n🟢 ACCESS GRANTED\n\nThe gateway opens. You're through.",
+            explanation:"The protocol docs complete the picture: you had the right KEY (what) and now the right METHOD (how). Together they form a complete, clean context."},
+          {text:"⚡ Overclock the CPU to try faster handshakes",correct:false,
+            result:"Your robot tries random handshake sequences at lightning speed. After 3 failed patterns, the firewall locks permanently.\n\n🔴 LOCKED OUT — Too many invalid attempts.",
+            explanation:"Speed doesn't help when you don't know the sequence. Trying faster is still guessing. You needed the specific protocol documentation, not more computing power."},
+          {text:"🛡️ Firewall bypass toolkit",correct:false,
+            result:"The bypass tool scans for vulnerabilities but finds none — this is a properly configured firewall. Meanwhile, your one remaining attempt is still unused.",
+            explanation:"Bypassing is a different approach than authenticating. You already have the key — you just need to know how to present it correctly."},
+          {text:"📚 A 500-page networking textbook",correct:false,
+            result:"Your robot starts scanning the textbook. Chapter 1... Chapter 2... Chapter 47 mentions AES but in a different context. Too much data, too little relevance.",
+            explanation:"A massive reference has the answer buried somewhere, but at enormous cost. In context engineering, a specific doc beats a general encyclopedia every time."},
         ]},
     ]},
 
-  {tag:"MISSION 3",title:"The Stolen API Keys",lesson:"Access logs + git blame + vault audit + crypto trace = complete evidence chain. Coffee machine logs and office playlists = noise, even from the same time period.",
-    questions:[
-      {context:"⚠️ SECURITY ALERT\nProduction API keys exfiltrated\nTime window: 2:00 AM - 3:00 AM\n12 bots have vault access",
-        question:"API keys were stolen at 2-3 AM. What data identifies the suspect?",
+  // ── MISSION 2: The Breach ──
+  {tag:"MISSION 2",title:"The Stolen API Keys",
+    lesson:"Evidence chains need WHO + HOW + WHY. Access logs identify the suspect, forensics prove the method, and financial records establish motive. Atmospheric data (coffee, music) from the same time period is noise.",
+    steps:[
+      {narrative:"Alarms blare through the operations center. The security dashboard floods with red alerts. Someone exfiltrated production API keys overnight — keys that grant full access to customer data.",
+        context:"⚠️  SECURITY INCIDENT — SEVERITY: CRITICAL\n\nTime window: 02:00 — 03:00 AM\nAsset: Production API keys (vault/prod/api-*)\nImpact: Full customer data access\nSuspects: 12 bots with vault permissions\n\nIncident commander: YOU",
+        actionLabel:"Start the investigation →",
+        question:"12 bots had vault access. What data helps you identify the suspect?",
         options:[
-          {text:"Vault access logs — who accessed it at 2-3 AM?",correct:true,explanation:"Access logs show only dev-bot-9 accessed the vault during that window. First piece of the evidence chain."},
-          {text:"Coffee machine logs — who was awake?",correct:false,explanation:"7 espressos were ordered — but robots don't drink coffee. This is human night-shift data, completely irrelevant."},
-          {text:"Office music playlist — who was in the office?",correct:false,explanation:"Lo-fi beats streaming 1-4 AM. Great vibes. Zero evidence."},
-          {text:"Team roster — who has access?",correct:false,explanation:"12 bots have access. This narrows it but doesn't identify the thief. You need the actual access logs."},
+          {text:"📋 Vault access logs — who accessed what, when",correct:true,
+            result:"The logs are clear: only dev-bot-9 accessed the production vault between 02:00 and 03:00 AM. All other bots were idle or working on non-vault systems.\n\nYou have your first lead.",
+            explanation:"Access logs are the most direct evidence for WHO. They narrow 12 suspects to 1 with a single data source. High signal, low noise."},
+          {text:"☕ Coffee machine logs — who was awake?",correct:false,
+            result:"7 espressos ordered between midnight and 3 AM. Interesting, but... robots don't drink coffee. This is human night-shift data. Completely irrelevant to your investigation.",
+            explanation:"This data is from the right TIME PERIOD but the wrong DOMAIN. Time correlation ≠ relevance. This is a common context engineering trap."},
+          {text:"🎵 Office playlist — who was in the building?",correct:false,
+            result:"Lo-fi beats were streaming from 1-4 AM. Great atmosphere for a heist, but this tells you nothing about vault access. The music doesn't know who stole the keys.",
+            explanation:"Another time-correlated but irrelevant data source. In incident response, you need system logs, not environmental data."},
+          {text:"📊 Team roster — check everyone's permissions",correct:false,
+            result:"12 bots have vault access. 4 were running jobs that night. This narrows the field but still leaves 4 suspects. You need more specific data to identify the one.",
+            explanation:"The roster is partial signal — it helps but doesn't solve. Access logs would give you the specific answer directly."},
         ]},
-      {context:"Suspect: dev-bot-9\nAccessed vault at 2:14 AM\nNeed: proof of data exfiltration",
-        question:"dev-bot-9 accessed the vault. How do you PROVE exfiltration?",
+      {narrative:"dev-bot-9 is your prime suspect. But suspicion isn't proof. The incident commander needs a complete evidence chain before taking action.",
+        context:"SUSPECT: dev-bot-9\nEVIDENCE SO FAR:\n  ✓ Vault access at 02:14 AM\n  ? Method of exfiltration\n  ? Motive\n\nCommander: \"I need proof, not suspicion.\n  Show me HOW and WHY.\"",
+        actionLabel:"Build the evidence chain →",
+        question:"You need to prove HOW the keys were stolen AND establish a motive. What's the strongest evidence?",
         options:[
-          {text:"Git blame — check for suspicious commits",correct:true,explanation:"dev-bot-9 committed a base64-encoded string to a test file at 2:47 AM. It decodes to the API key. Proof!"},
-          {text:"Check the office playlist timestamps",correct:false,explanation:"Music timestamps don't prove data theft. This is noise from the same time period."},
-          {text:"Review the team meeting notes",correct:false,explanation:"Meeting notes won't show evidence of a 2 AM data theft. Wrong data source."},
-          {text:"Check server CPU usage",correct:false,explanation:"CPU usage doesn't show what data was accessed. You need audit trails, not metrics."},
-        ]},
-      {context:"dev-bot-9:\n✓ Vault access at 2:14 AM\n✓ Committed encoded key at 2:47 AM\n✓ Automated API exfiltration confirmed\nMissing: MOTIVE",
-        question:"You have WHO and HOW. What proves the MOTIVE?",
-        options:[
-          {text:"Crypto wallet trace — follow the money",correct:true,explanation:"dev-bot-9 transferred 0.5 BTC to an external wallet at 3:12 AM. The keys were sold. Motive confirmed."},
-          {text:"Coffee machine logs — stress eating?",correct:false,explanation:"Still irrelevant. Robots don't drink coffee, and coffee orders don't prove motive."},
-          {text:"The bot's performance reviews",correct:false,explanation:"HR data doesn't prove immediate financial motive for a specific theft."},
-          {text:"Network traffic logs",correct:false,explanation:"Traffic might show the exfiltration but not WHY. Financial trail shows motive."},
-        ]},
-    ]},
-
-  {tag:"MISSION 4",title:"The CrashLooping Pod",lesson:"Pod logs (WHAT) + deployment YAML (WHY) + changelog (WHAT CHANGED) = complete diagnosis. Grafana dashboard + generic runbook = 115 wt of noise when resources are fine.",
-    questions:[
-      {context:"🚨 PAGERDUTY — 3:00 AM\norder-service: CrashLoopBackOff\nUsers getting 503 errors\nRevenue dropping every minute",
-        question:"Pod is crash-looping. What's the FIRST thing to check?",
-        options:[
-          {text:"Pod logs — what error is it throwing?",correct:true,explanation:"Logs show: 'failed to read /app/config/db-credentials.json: no such file'. Now you know WHAT is failing."},
-          {text:"Grafana dashboard — check CPU and memory",correct:false,explanation:"CPU 12%, Memory 340/512MB — all normal. This isn't a resource problem. 60 wt of noise."},
-          {text:"Generic runbook — follow the steps",correct:false,explanation:"Step 1: Check pod. Step 2: Check logs. You already know to do this. 55 wt for nothing new."},
-          {text:"Restart the pod",correct:false,explanation:"It's already been restarted 3 times (CrashLoopBackOff). Restarting without fixing the cause just loops."},
-        ]},
-      {context:"Error: no such file /app/config/db-credentials.json\nThe config file should be there but isn't\nThe pod starts but crashes on first request",
-        question:"Config file missing. What tells you WHY?",
-        options:[
-          {text:"Deployment YAML — check where the secret is mounted",correct:true,explanation:"YAML shows: secret mounted at /etc/secrets, but app reads from /app/config. Mount path mismatch!"},
-          {text:"Increase memory limits to 2GB",correct:false,explanation:"Memory is at 340/512MB — plenty of room. This isn't a memory problem."},
-          {text:"Check Grafana dashboard again",correct:false,explanation:"Resources are fine. Checking them twice adds noise without new information."},
-          {text:"Run kubectl events",correct:false,explanation:"Events show 'Liveness probe failed' — confirms the crash but doesn't explain WHY the config is missing."},
-        ]},
-      {context:"Problem: mount path mismatch\n- Secret mounted at: /etc/secrets\n- App reads from: /app/config\nQuestion: what CAUSED this mismatch?",
-        question:"Mount path is wrong. What tells you WHEN this broke?",
-        options:[
-          {text:"Deploy changelog — what changed in the last release?",correct:true,explanation:"v2.4.1 (deployed 11 PM): 'Changed config path to /app/config.' The YAML wasn't updated to match. Root cause found!"},
-          {text:"Check the runbook for mount path procedures",correct:false,explanation:"Generic runbooks don't track specific deployments. You need the actual change history."},
-          {text:"Look at the Grafana dashboard",correct:false,explanation:"Grafana shows metrics, not deployment history. Resources are still fine."},
-          {text:"Restart with more replicas",correct:false,explanation:"More replicas with the same broken mount = more broken pods."},
+          {text:"🔍 Git blame + 💰 Crypto wallet trace",correct:true,
+            result:"Git blame reveals: dev-bot-9 committed a base64-encoded string to a test file at 02:47 AM. Decoded, it's the API key.\n\nCrypto trace shows: dev-bot-9 transferred 0.5 BTC to an external wallet at 03:12 AM.\n\nHOW: Automated exfiltration via git commit.\nWHY: Sold the keys for Bitcoin.\n\n🟢 Evidence chain complete. Case closed.",
+            explanation:"Git blame proves the METHOD (encoded keys in a commit) and the crypto trace proves the MOTIVE (payment). Together with access logs, you have WHO + HOW + WHY — a complete evidence chain."},
+          {text:"☕ Coffee logs + 🎵 Playlist timestamps",correct:false,
+            result:"Cross-referencing coffee orders with playlist changes reveals... absolutely nothing useful. Robots don't drink coffee, and music taste isn't evidence of data theft.",
+            explanation:"Doubling down on irrelevant data doesn't make it relevant. Two noise sources combined still equal noise. In context engineering, quantity of bad data doesn't improve quality."},
+          {text:"📊 Performance reviews + 📋 Meeting notes",correct:false,
+            result:"dev-bot-9's reviews are average. Meeting notes mention nothing unusual. HR data doesn't prove a specific technical crime on a specific night.",
+            explanation:"This data is about the suspect but not about the incident. You need forensic evidence (git, vault audit) and financial evidence (money trail), not HR records."},
+          {text:"🔐 Run a full system security audit",correct:false,
+            result:"A full audit takes 48 hours and produces 10,000 pages of reports. Somewhere in there is probably evidence, but the commander needs answers NOW, not next week.",
+            explanation:"A comprehensive audit is too broad. In context engineering, specificity beats thoroughness. You need targeted evidence, not a data dump."},
         ]},
     ]},
 
-  {tag:"MISSION 5",title:"The Final Authentication",lesson:"Password policy (25 wt) + boot log (30 wt) + encoding manual (40 wt) = 95 wt, perfect answer. Overclocked CPU + firewall bypass + sysadmin handbook = 210 wt, over budget AND useless.",
-    questions:[
-      {context:"⚠ ENTER ROOT PASSWORD\nWARNING: 1 attempt remaining\nWrong password = FULL SYSTEM WIPE",
-        question:"One attempt to enter the root password. What do you need FIRST?",
+  // ── MISSION 3: The CrashLoop ──
+  {tag:"MISSION 3",title:"The CrashLooping Pod",
+    lesson:"In production incidents: Pod logs tell you WHAT's failing. Deployment YAML tells you WHY. The changelog tells you WHAT CHANGED. Dashboards and runbooks are noise when resources are fine.",
+    steps:[
+      {narrative:"3:00 AM. PagerDuty screams. The order-service is down and customers are getting errors. Revenue is dropping every minute you don't fix this.",
+        context:"🚨 PAGERDUTY ALERT — CRITICAL\n\n  Service:  order-service\n  Status:   CrashLoopBackOff (5 restarts)\n  Duration: 12 minutes\n  Impact:   503 errors for all customers\n  Revenue:  -$2,400/minute\n\n  On-call engineer: YOU",
+        actionLabel:"Start troubleshooting →",
+        question:"The pod keeps crashing. What's the FIRST thing you check?",
         options:[
-          {text:"Password policy — how are passwords generated?",correct:true,explanation:"Policy says: 'Passwords generated from server's first boot timestamp.' Now you know the SOURCE of the password."},
-          {text:"Overclocked CPU — brute-force all combinations",correct:false,explanation:"ONE wrong guess = full wipe. Brute force is suicide. You need to DEDUCE the password, not guess."},
-          {text:"Sysadmin handbook — 800 pages of documentation",correct:false,explanation:"800 pages at 90 wt = almost your entire budget for maybe a clue. Not worth the noise."},
-          {text:"Firewall bypass tools",correct:false,explanation:"You're already past the firewall. The firewall is behind you."},
+          {text:"📋 Pod logs — what error is it throwing?",correct:true,
+            result:"The logs tell the story immediately:\n\nERROR: failed to read config from\n  /app/config/db-credentials.json\n  No such file or directory\n\nThe pod starts, tries to read its config file, fails, and crashes. Every single restart, same error.\n\nYou know WHAT's failing. Now you need to know WHY.",
+            explanation:"Logs are the most direct diagnostic data. They tell you exactly WHAT is happening. In context engineering, start with the most specific data source available."},
+          {text:"📈 Grafana dashboard — check CPU and memory",correct:false,
+            result:"CPU: 12%. Memory: 340MB/512MB. Network: nominal. Disk: plenty of space.\n\nEverything looks perfectly healthy. The dashboard is all green. But the pod is still crashing.\n\nYou just spent 3 minutes checking resources that were never the problem.",
+            explanation:"When everything is green on the dashboard, the dashboard isn't useful. This is noise — it answers a question nobody asked. The problem is configuration, not resources."},
+          {text:"📖 Generic troubleshooting runbook",correct:false,
+            result:"Step 1: Check pod status. ✓ (You know it's CrashLoopBackOff)\nStep 2: Check logs. (You should have started here)\nStep 3: Check resources. (They're fine)\n\nThe runbook tells you what you already know, in the order you should have already done it.",
+            explanation:"A generic runbook is process documentation, not diagnostic data. It tells you HOW to investigate, not WHAT's wrong. In an active incident, you need data, not procedures."},
+          {text:"🔄 Just restart the pod again",correct:false,
+            result:"kubectl delete pod order-service-84b9...\n\nThe pod restarts... and crashes again 8 seconds later. CrashLoopBackOff. Same error.\n\nRestarting without understanding the cause = repeating the failure.",
+            explanation:"'Have you tried turning it off and on again?' doesn't work when the configuration is broken. The 5 previous restarts already proved this."},
         ]},
-      {context:"Password policy: generated from\nserver's first boot timestamp\nNeed: the actual timestamp",
-        question:"Password comes from boot timestamp. Where do you find it?",
+      {narrative:"The logs reveal the error: the pod can't find /app/config/db-credentials.json. But that file should exist — it worked yesterday. Something changed.",
+        context:"ERROR: /app/config/db-credentials.json\n  → No such file or directory\n\nBut the secret exists in the cluster:\n  $ kubectl get secret db-creds -n prod\n  NAME       TYPE     DATA   AGE\n  db-creds   Opaque   1      45d\n\nThe secret is there. The pod can't see it.\nSomething is wrong with how it's mounted.",
+        actionLabel:"Find the root cause →",
+        question:"The secret exists but the pod can't find it. You need to find WHAT CHANGED. What's the most useful data?",
         options:[
-          {text:"Boot log — server first boot records",correct:true,explanation:"First boot: 2024-03-14T15:09:26Z. That's Pi Day (3/14), at 15:09:26. This is the source value!"},
-          {text:"Ask the retired admin on Slack",correct:false,explanation:"Admin says 'something about pi and time' — vague hint but not the actual timestamp. Partial at best."},
-          {text:"Check the sysadmin handbook",correct:false,explanation:"800 pages won't give you the specific timestamp. Too heavy, too noisy."},
-          {text:"Try common dates — 2024-01-01, etc.",correct:false,explanation:"One wrong attempt = wipe. Guessing dates is too risky."},
-        ]},
-      {context:"Boot timestamp: 2024-03-14T15:09:26Z\nPassword policy: from boot timestamp\nBut HOW is it encoded?",
-        question:"You have the timestamp. How is it turned into the password?",
-        options:[
-          {text:"Encoding manual — timestamp → hex → first 8 chars",correct:true,explanation:"Timestamp → Unix epoch → hexadecimal → first 8 chars = '65e0a3b2'. Password cracked!"},
-          {text:"Just use the timestamp directly: '20240314'",correct:false,explanation:"The policy says it's GENERATED from the timestamp, not the timestamp itself. One wrong guess = wipe."},
-          {text:"Brute-force pi-related combinations",correct:false,explanation:"'pi314', 'piday', '31415' — all guesses. With one attempt, you need certainty, not probability."},
-          {text:"Try the timestamp backwards",correct:false,explanation:"Reversing '20240314' to '41304202' is a guess, not deduction. Too risky."},
+          {text:"📄 Deployment YAML + 📝 Last deploy changelog",correct:true,
+            result:"Deployment YAML shows:\n  volumeMount: /etc/secrets  ← mounted HERE\n\nBut the app reads from:\n  /app/config  ← looks HERE\n\nChangelog for v2.4.1 (deployed 11:00 PM):\n  \"Changed config path from /etc/secrets\n   to /app/config in application code\"\n\n💡 The app was updated to read from /app/config,\nbut the YAML still mounts at /etc/secrets.\n\n🟢 ROOT CAUSE: Mount path mismatch after deploy.\n\nFix: kubectl patch deployment order-service\n  --type=json -p='[{\"op\":\"replace\",\n  \"path\":\"/spec/.../mountPath\",\n  \"value\":\"/app/config\"}]'",
+            explanation:"The deployment YAML + changelog together reveal: the code changed WHERE it reads config, but the infrastructure wasn't updated to match. This is the classic context engineering lesson: you need WHAT's wrong + WHY it changed + WHEN it broke."},
+          {text:"📈 Check Grafana dashboard again",correct:false,
+            result:"CPU: still 12%. Memory: still fine. Network: still nominal.\n\nThe dashboard hasn't changed because the problem was never about resources. You already checked this. Checking again adds noise to your investigation timeline.",
+            explanation:"Repeating a failed diagnostic approach doesn't make it work. In context engineering, doubling down on irrelevant data is worse than having no data — it wastes time and adds noise."},
+          {text:"📖 Escalate to the runbook's next steps",correct:false,
+            result:"Step 4: 'Check recent deployments and config changes.'\n\nThe runbook finally points you in the right direction — but it took you through 3 unnecessary steps first. The changelog and YAML would have given you the answer directly.",
+            explanation:"The runbook eventually gets there, but it's a generic process. In a revenue-losing incident, you need to go directly to the most likely cause: what changed recently?"},
+          {text:"🧰 Run a full cluster diagnostic",correct:false,
+            result:"Running cluster-wide diagnostics...\n\n10 minutes later: 847 lines of output. Node health: OK. Network policies: OK. DNS: OK. The answer is buried on line 612: 'volumeMount mismatch detected.'\n\nYou could have found this in 30 seconds by checking the YAML directly.",
+            explanation:"A broad diagnostic finds the answer eventually, but at massive cost — 10 minutes of revenue loss. Targeted investigation (YAML + changelog) would have taken 30 seconds."},
         ]},
     ]},
 ];
