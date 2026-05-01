@@ -96,7 +96,6 @@ function renderLevel(){
   const typeMap={};if(state.lastResult&&state.lastResult.items)state.lastResult.items.forEach(it=>typeMap[it.id]=it.type);
   const shelfItems=items.filter(i=>!state.bag.includes(i.id));
   const bagItems=items.filter(i=>state.bag.includes(i.id));
-  const offL = getOfflineLevel(state.level);
   const isTutorial = L.tutorial === true || (offL && offL.tutorial === true);
 
   let html=`<div class="scene">
